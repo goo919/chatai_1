@@ -1,9 +1,10 @@
 import fetch from 'node-fetch';
-import dotenv from 'dotenv';
 
-dotenv.config();
+export default async function handler(req, res) {
+  if (req.method !== 'POST') {
+    return res.status(405).end(); // Method Not Allowed
+  }
 
-export default async (req, res) => {
   const { message } = req.body;
   const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
@@ -25,8 +26,8 @@ export default async (req, res) => {
     });
 
     const data = await response.json();
-    res.json({ response: data.choices[0].message.content.trim() });
+    res.status(200).json({ response: data.choices[0].message.content.trim() });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
-};
+}
