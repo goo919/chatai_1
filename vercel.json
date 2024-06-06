@@ -1,18 +1,17 @@
 {
-  "version": 2,
   "builds": [
     {
-      "src": "api/fetch-openai.js",
+      "src": "server.js",
       "use": "@vercel/node"
     },
     {
-      "src": "public/**",
+      "src": "public/**/*",
       "use": "@vercel/static"
     }
   ],
   "routes": [
     {
-      "src": "/api/fetch-openai",
+      "src": "/api/(.*)",
       "dest": "/api/fetch-openai.js"
     },
     {
