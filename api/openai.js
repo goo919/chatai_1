@@ -1,14 +1,6 @@
-import express from 'express';
-import fetch from 'node-fetch';
-import dotenv from 'dotenv';
+const fetch = require('node-fetch');
 
-dotenv.config();
-
-const app = express();
-app.use(express.json());
-app.use(express.static('public'));
-
-app.post('/api/fetch-openai', async (req, res) => {
+module.exports = async (req, res) => {
     const { message } = req.body;
     const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
@@ -30,13 +22,8 @@ app.post('/api/fetch-openai', async (req, res) => {
         });
 
         const data = await response.json();
-        res.json({ response: data.choices[0].message.content.trim() });
+        res.status(200).json({ response: data.choices[0].message.content.trim() });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
-});
-
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
-});
+};
