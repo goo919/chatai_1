@@ -1,11 +1,19 @@
 import express from 'express';
 import fetch from 'node-fetch';
 import dotenv from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
 dotenv.config();
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 const app = express();
 app.use(express.json());
+
+// 정적 파일 제공
+app.use(express.static(path.join(__dirname, 'public')));
 
 app.post('/api/fetch-openai', async (req, res) => {
     const { message } = req.body;
@@ -33,6 +41,11 @@ app.post('/api/fetch-openai', async (req, res) => {
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
+});
+
+// 기본 라우트 설정
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
 const PORT = process.env.PORT || 3000;
