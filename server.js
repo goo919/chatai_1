@@ -14,6 +14,7 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
 app.post('/api/fetch-openai', async (req, res) => {
+  console.log(res);
   if (req.method !== 'POST') {
     res.status(405).send({ message: 'Only POST requests allowed' });
     return;
@@ -22,8 +23,6 @@ app.post('/api/fetch-openai', async (req, res) => {
   const { message } = req.body;    
   const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
-
-      console.log(OPENAI_API_KEY);
   try {
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -42,8 +41,6 @@ app.post('/api/fetch-openai', async (req, res) => {
     });
 
     const data = await response.json();
-      console.log(data);
-
     res.status(200).json({ response: data.choices[0].message.content.trim() });
   } catch (error) {
     res.status(500).json({ error: error.message });
