@@ -18,7 +18,7 @@ async function sendMessage() {
     chatBox.appendChild(userMessageDiv);
 
     userInput.value = '';  // Clear the input field after sending the message
-
+    console.log(userMessage);
     const response = await fetch('/api/fetch-openai', {
         method: 'POST',
         headers: {
