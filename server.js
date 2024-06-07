@@ -41,6 +41,8 @@ app.post('/api/fetch-openai', async (req, res) => {
     });
 
     const data = await response.json();
+      console.log(data);
+
     res.status(200).json({ response: data.choices[0].message.content.trim() });
   } catch (error) {
     res.status(500).json({ error: error.message });
