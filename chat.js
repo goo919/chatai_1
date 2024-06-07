@@ -21,7 +21,7 @@ async function sendMessage() {
     console.log(userMessage);
     const API_URL = 'localhost:3000/api/fetch-openai'; // 로컬 테스트 시
 
-    const response = await fetch('API_URL', {
+    const response = await fetch(API_URL, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json'
