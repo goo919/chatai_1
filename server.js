@@ -10,11 +10,12 @@ app.use(express.static('public'));
 
 app.post('/api/fetch-openai', async (req, res) => {
     const { message } = req.body;
+    console.log(req);
     const OPENAI_API_KEY='sk-proj-TAhllvE1obUwSCoWieaw';
     OPEN_API_KEY += 'T3BlbkFJkLHwyYAXN6Xwg9aVkAWj';
 
-
     try {
+        console.log('Sending request to OpenAI API...');
         const response = await fetch('https://api.openai.com/v1/chat/completions', {
             method: 'POST',
             headers: {
@@ -32,8 +33,15 @@ app.post('/api/fetch-openai', async (req, res) => {
         });
 
         const data = await response.json();
-        res.json({ response: data.choices[0].message.content.trim() });
+        console.log('Response from OpenAI API:', data);
+
+        if (response.ok) {
+            res.json({ response: data.choices[0].message.content.trim() });
+        } else {
+            res.status(response.status).json({ error: data });
+        }
     } catch (error) {
+        console.error('Error fetching OpenAI API:', error);
         res.status(500).json({ error: error.message });
     }
 });
