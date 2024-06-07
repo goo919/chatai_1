@@ -19,7 +19,9 @@ async function sendMessage() {
 
     userInput.value = '';  // Clear the input field after sending the message
     console.log(userMessage);
-    const response = await fetch('https://goo919.github.io:3000/chatai_1/api/fetch-openai', {
+    const API_URL = 'localhost:3000/api/fetch-openai'; // 로컬 테스트 시
+
+    const response = await fetch('API_URL', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json'
