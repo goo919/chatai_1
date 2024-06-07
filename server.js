@@ -23,6 +23,7 @@ app.post('/api/fetch-openai', async (req, res) => {
   const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
 
+      console.log(OPENAI_API_KEY);
   try {
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
