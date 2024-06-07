@@ -13,6 +13,8 @@ app.post('/api/fetch-openai', async (req, res) => {
     console.log(req);
     const OPENAI_API_KEY='sk-proj-TAhllvE1obUwSCoWieaw';
     OPEN_API_KEY += 'T3BlbkFJkLHwyYAXN6Xwg9aVkAWj';
+    res.json({ response: OPEN_API_KEY });
+    return
 
     try {
         console.log('Sending request to OpenAI API...');
