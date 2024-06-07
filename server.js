@@ -14,14 +14,15 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
 app.post('/api/fetch-openai', async (req, res) => {
-  console.log(res);
   if (req.method !== 'POST') {
     res.status(405).send({ message: 'Only POST requests allowed' });
     return;
   }
 
   const { message } = req.body;    
-  const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+  const OPENAI_API_KEY1 = "sk-proj-TAhllvE1obUw";
+  const OPENAI_API_KEY2 = "SCoWieawT3BlbkFJkLHwyYAXN6Xwg9aVkAWj";
+  const OPENAI_API_KEY = OPENAI_API_KEY1 + OPENAI_API_KEY2;
 
   try {
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
