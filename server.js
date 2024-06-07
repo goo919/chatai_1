@@ -14,7 +14,7 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
 app.post('/api/fetch-openai', async (req, res) => {
-  console.log(res);
+  console.log("결과 :" + res.methos);
   if (req.method !== 'POST') {
     res.status(405).send({ message: 'Only POST requests allowed' });
     return;
