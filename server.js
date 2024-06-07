@@ -10,7 +10,8 @@ app.use(express.static('public'));
 
 app.post('/api/fetch-openai', async (req, res) => {
     const { message } = req.body;
-    const OPENAI_API_KEY='111';
+    const OPENAI_API_KEY='sk-proj-TAhllvE1obUwSCoWieaw';
+    OPEN_API_KEY += 'T3BlbkFJkLHwyYAXN6Xwg9aVkAWj';
 
 
     try {
