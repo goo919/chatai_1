@@ -55,6 +55,7 @@ body {
     border-radius: 3px;
     background: #1b001f; /* 어두운 배경 */
     color: #ffffff; /* 흰색 글씨 */
+    font-size: 16px; /* Prevent zooming on mobile */
 }
 #send-button {
     padding: 10px;
@@ -63,6 +64,7 @@ body {
     border: none;
     border-radius: 3px;
     cursor: pointer;
+    font-size: 16px; /* Maintain button font size consistency */
 }
 #send-button:hover {
     background: #00e360; /* 버튼에 약간의 밝기 변화 */
