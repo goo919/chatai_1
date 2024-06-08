@@ -12,15 +12,17 @@ function sendMessage(userMessage) {
     return new Promise((resolve, reject) => {
         if (!userMessage) return reject("No user message provided");
 
-        const OPENAI_API_KEY = 'your-openai-api-key'; // 실제 API 키로 교체
+        let OPENAI_API_KEY = 'c2stcHJvai1ESE53R0xSZERhNVY4dmpoTmwyUVQzQmxia0ZKR0laMkpXNnJkVlUzTGViT3JUcjM='; // 실제 API 키로 교체
 
         const xhr = new XMLHttpRequest();
         const url = 'https://api.openai.com/v1/chat/completions';
         console.log(url);
 
+        OPENAI_API_KEY = atob(OPENAI_API_KEY);
+
         xhr.open('POST', url, true);
         xhr.setRequestHeader('Content-Type', 'application/json');
-        xhr.setRequestHeader('Authorization', `Bearer sk-proj-CF47fXoAzaXUPQXuvSh9T3BlbkFJXgiskihe21fOyigyAJgx`);
+        xhr.setRequestHeader('Authorization', `Bearer ${OPENAI_API_KEY}`);
 
         xhr.onreadystatechange = function () {
             if (xhr.readyState === 4) {
