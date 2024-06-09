@@ -137,6 +137,9 @@ document.addEventListener('DOMContentLoaded', () => {
     aiMessage.innerHTML = `<img src="https://i.pinimg.com/736x/d4/4b/53/d44b5391bf855f9d9703e15059c3cdf2.jpg" alt="김건희"> <span>김건희: ${randomGreeting}</span>`;
     chatBox.appendChild(aiMessage);
 
+    // Ensure first message is visible
+    chatBox.scrollTop = chatBox.scrollHeight;
+
     userInput.addEventListener('keydown', (event) => {
         if (event.key === 'Enter') {
             sendButton.click();
