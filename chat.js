@@ -151,8 +151,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Adjust chat-container height when keyboard is shown/hidden
     userInput.addEventListener('focus', () => {
-        document.documentElement.style.overflow = 'hidden'; // Prevent scrolling
-        document.body.style.overflow = 'hidden'; // Prevent scrolling
         setTimeout(() => {
             const chatBox = document.getElementById('chat-box');
             chatBox.style.height = 'calc(100vh - 110px)'; // Adjust for keyboard height
@@ -161,8 +159,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     userInput.addEventListener('blur', () => {
-        document.documentElement.style.overflow = 'auto'; // Allow scrolling
-        document.body.style.overflow = 'auto'; // Allow scrolling
         const chatBox = document.getElementById('chat-box');
         chatBox.style.height = 'calc(100vh - 60px)'; // Reset height
         chatBox.scrollTop = chatBox.scrollHeight;
