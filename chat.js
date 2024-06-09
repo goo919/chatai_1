@@ -86,7 +86,7 @@ sendButton.addEventListener('click', async () => {
 
     if (!isUserNameSet) {
         if (message.trim().toLowerCase() === "싫어" || message.trim().toLowerCase() === "안알려줄래") {
-            userName = ''; 
+            userName = '이름을 원치 않는 사람'; 
             isUserNameSet = true; 
         } else {
             userName = message.replace(/[^\w\s]/gi, '').split(" ")[0]; 
