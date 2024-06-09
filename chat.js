@@ -161,8 +161,8 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     userInput.addEventListener('blur', () => {
-        document.documentElement.style.overflow = 'scroll'; // Allow scrolling
-        document.body.style.overflow = 'scroll'; // Allow scrolling
+        document.documentElement.style.overflow = 'auto'; // Allow scrolling
+        document.body.style.overflow = 'auto'; // Allow scrolling
         const chatBox = document.getElementById('chat-box');
         chatBox.style.height = 'calc(100vh - 60px)'; // Reset height
         chatBox.scrollTop = chatBox.scrollHeight;
