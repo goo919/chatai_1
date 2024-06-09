@@ -1,12 +1,8 @@
-body {
-    font-family: 'Courier New', Courier, monospace;
+html, body {
+    height: 100%;
     margin: 0;
-    padding: 0;
-    display: flex;
-    flex-direction: column;
-    height: 100vh;
-    justify-content: center;
-    align-items: center;
+    overflow: hidden; /* 화면 전체 스크롤 방지 */
+    font-family: 'Courier New', Courier, monospace;
     background-color: #4b0000; /* 어두운 빨강 배경 */
     color: #ffffff; /* 흰색 글씨 */
 }
@@ -26,13 +22,13 @@ body {
 #chat-container {
     width: 100%;
     max-width: 600px;
+    height: 100%; /* 화면 전체를 차지하도록 설정 */
     background: #1b001f; /* 어두운 배경 */
     box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
     border-radius: 5px;
-    overflow: hidden;
     display: flex;
     flex-direction: column;
-    height: calc(100vh - 50px); /* 입력창 높이를 제외한 화면 전체 */
+    overflow: hidden; /* 내부 스크롤로 제한 */
 }
 
 #chat-box {
@@ -69,10 +65,8 @@ body {
     display: flex;
     padding: 10px;
     background: #5e002a; /* 어두운 빨간색 배경 */
-    position: fixed;
-    bottom: 0;
+    position: relative;
     width: 100%;
-    max-width: 600px;
     box-sizing: border-box;
     z-index: 1000;
 }
@@ -100,32 +94,4 @@ body {
 
 #send-button:hover {
     background: #00e360; /* 버튼에 약간의 밝기 변화 */
-}
-
-/* 모바일 장치에서만 적용 */
-@media (max-width: 768px) {
-    #chat-container {
-        height: calc(100vh - 50px); /* 입력창 높이를 제외한 화면 전체 */
-    }
-    #input-container {
-        position: fixed;
-        bottom: 0;
-        width: 100%;
-        max-width: 600px;
-        box-sizing: border-box;
-    }
-}
-
-/* PC 환경에서 적용 */
-@media (min-width: 769px) {
-    #chat-container {
-        height: calc(100vh - 50px); /* 입력창 높이를 제외한 화면 전체 */
-    }
-    #input-container {
-        position: relative; /* PC 환경에서는 상대적 위치 */
-        bottom: auto;
-        width: 100%;
-        max-width: 600px;
-        box-sizing: border-box;
-    }
 }
