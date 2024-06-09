@@ -149,12 +149,14 @@ document.addEventListener('DOMContentLoaded', () => {
     // Adjust chat-container height when keyboard is shown/hidden
     userInput.addEventListener('focus', () => {
         setTimeout(() => {
-            document.getElementById('chat-box').style.height = 'calc(100vh - 50px - 260px)'; // Adjust for keyboard height
-            document.getElementById('chat-box').scrollTop = document.getElementById('chat-box').scrollHeight;
+            const chatBox = document.getElementById('chat-box');
+            chatBox.style.height = 'calc(100vh - 100px)'; // Adjust for keyboard height
+            chatBox.scrollTop = chatBox.scrollHeight;
         }, 300);
     });
 
     userInput.addEventListener('blur', () => {
-        document.getElementById('chat-box').style.height = 'calc(100vh - 50px)'; // Reset height
+        const chatBox = document.getElementById('chat-box');
+        chatBox.style.height = 'calc(100vh - 50px)'; // Reset height
     });
 });
