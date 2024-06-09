@@ -158,5 +158,6 @@ document.addEventListener('DOMContentLoaded', () => {
     userInput.addEventListener('blur', () => {
         const chatBox = document.getElementById('chat-box');
         chatBox.style.height = 'calc(100vh - 60px)'; // Reset height
+        chatBox.scrollTop = chatBox.scrollHeight;
     });
 });
