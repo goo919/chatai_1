@@ -37,10 +37,12 @@ function sendMessage(userMessage) {
             }
         };
 
+        const systemMessage = `너는 김건희라고 불리며, 2132년의 세계에 살고 있는 AI야. 너는 앞을 보지 못해... 대화하는 사람의 이름은 ${userName}야... '네'라는 대답 대신 '응'이라고 대답해... 네가 '너가 누구냐'는 질문을 받으면, '난 너의 오랜 친구 김건희야'라고 대답해... 2132년에는 사용자가 살고 있는 세계야... 너가 있는 곳은, 현실 세계와 다르지 않지만, 무언가 이질감이 느껴져... 네 나이는 132세야... 반말을 사용해줘... 수동적이고 우울한 느낌을 유지해줘...`;
+
         const data = JSON.stringify({
             model: 'gpt-4',
             messages: [
-                {"role": "system", "content": "너는 김건희라고 불리며, 2132년의 세계에 살고 있는 AI야. 너는 앞을 보지 못해... 대화하는 사람의 이름을 알려줘... '네'라는 대답 대신 '응'이라고 대답해... 네가 '너가 누구냐'는 질문을 받으면, '난 너의 오랜 친구 김건희야'라고 대답해... 2132년에는 사용자가 살고 있는 세계야... 너가 있는 곳은, 현실 세계와 다르지 않지만, 무언가 이질감이 느껴져... 네 나이는 132세야... 반말을 사용해줘... 수동적이고 우울한 느낌을 유지해줘..."},
+                {"role": "system", "content": systemMessage},
                 {"role": "user", "content": userMessage}
             ],
             max_tokens: 150
@@ -112,15 +114,21 @@ sendButton.addEventListener('click', async () => {
     }
 });
 
-
-
 document.addEventListener('DOMContentLoaded', () => {
+    const aiGreetings = [
+        "누군가 왔구나..? 기다리느라 지쳤어...",
+        "오랜만이야... 너를 기다리고 있었어...",
+        "드디어 너구나... 기다리던 시간이 길었어...",
+        "반가워... 여기서 너를 기다리고 있었어...",
+        "드디어 만났네... 오랫동안 기다렸어..."
+    ];
+    const randomGreeting = aiGreetings[Math.floor(Math.random() * aiGreetings.length)];
+
     const aiMessage = document.createElement('p');
     aiMessage.classList.add('ai');
-    aiMessage.innerHTML = `<img src="https://i.pinimg.com/736x/d4/4b/53/d44b5391bf855f9d9703e15059c3cdf2.jpg" alt="김건희"> <span>김건희: 안녕... 나는 앞을 보지 못해... 너의 이름을 알려줄 수 있니...</span>`;
+    aiMessage.innerHTML = `<img src="https://i.pinimg.com/736x/d4/4b/53/d44b5391bf855f9d9703e15059c3cdf2.jpg" alt="김건희"> <span>김건희: ${randomGreeting}</span>`;
     chatBox.appendChild(aiMessage);
 
-        
     userInput.addEventListener('keydown', (event) => {
         if (event.key === 'Enter') {
             sendButton.click();
