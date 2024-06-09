@@ -145,4 +145,13 @@ document.addEventListener('DOMContentLoaded', () => {
             sendButton.click();
         }
     });
+
+    // Adjust chat-container height when keyboard is shown/hidden
+    userInput.addEventListener('focus', () => {
+        document.getElementById('chat-container').style.height = 'calc(100vh - 50px - 200px)'; // Adjust for keyboard height
+    });
+
+    userInput.addEventListener('blur', () => {
+        document.getElementById('chat-container').style.height = 'calc(100vh - 50px)'; // Reset height
+    });
 });
