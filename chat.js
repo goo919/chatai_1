@@ -150,13 +150,13 @@ document.addEventListener('DOMContentLoaded', () => {
     userInput.addEventListener('focus', () => {
         setTimeout(() => {
             const chatBox = document.getElementById('chat-box');
-            chatBox.style.height = 'calc(100vh - 100px)'; // Adjust for keyboard height
+            chatBox.style.height = 'calc(100vh - 110px)'; // Adjust for keyboard height
             chatBox.scrollTop = chatBox.scrollHeight;
         }, 300);
     });
 
     userInput.addEventListener('blur', () => {
         const chatBox = document.getElementById('chat-box');
-        chatBox.style.height = 'calc(100vh - 50px)'; // Reset height
+        chatBox.style.height = 'calc(100vh - 60px)'; // Reset height
     });
 });
