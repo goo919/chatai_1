@@ -97,6 +97,7 @@ sendButton.addEventListener('click', async () => {
         aiMessage.innerHTML = `<img src="https://i.pinimg.com/736x/d4/4b/53/d44b5391bf855f9d9703e15059c3cdf2.jpg" alt="김건희"> <span>김건희: 반가워${userName ? ", " + userName : ""}... 무엇을 도와줄까...</span>`;
         chatBox.appendChild(aiMessage);
         chatBox.scrollTop = chatBox.scrollHeight;
+        userInput.focus();
         return;
     }
 
@@ -112,6 +113,7 @@ sendButton.addEventListener('click', async () => {
         chatBox.scrollTop = chatBox.scrollHeight;
 
         typeWriter(aiMessage.querySelector('span'), `김건희: ${aiResponse}`, 25);
+        userInput.focus();
     } catch (error) {
         console.error('Error:', error);
         const aiMessage = document.createElement('p');
@@ -119,6 +121,7 @@ sendButton.addEventListener('click', async () => {
         aiMessage.innerHTML = `<img src="https://i.pinimg.com/736x/d4/4b/53/d44b5391bf855f9d9703e15059c3cdf2.jpg" alt="김건희"> <span>김건희: 오류가 발생했어...</span>`;
         chatBox.appendChild(aiMessage);
         chatBox.scrollTop = chatBox.scrollHeight;
+        userInput.focus();
     }
 });
 
@@ -148,6 +151,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Adjust chat-container height when keyboard is shown/hidden
     userInput.addEventListener('focus', () => {
+        document.documentElement.style.overflow = 'hidden'; // Prevent scrolling
+        document.body.style.overflow = 'hidden'; // Prevent scrolling
         setTimeout(() => {
             const chatBox = document.getElementById('chat-box');
             chatBox.style.height = 'calc(100vh - 110px)'; // Adjust for keyboard height
@@ -156,6 +161,8 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     userInput.addEventListener('blur', () => {
+        document.documentElement.style.overflow = 'scroll'; // Allow scrolling
+        document.body.style.overflow = 'scroll'; // Allow scrolling
         const chatBox = document.getElementById('chat-box');
         chatBox.style.height = 'calc(100vh - 60px)'; // Reset height
         chatBox.scrollTop = chatBox.scrollHeight;
