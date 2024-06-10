@@ -1,8 +1,10 @@
 const chatBox = document.getElementById('chat-box');
 const userInput = document.getElementById('user-input');
 const sendButton = document.getElementById('send-button');
+const toggleSpeechButton = document.getElementById('toggle-speech-button');
 let userName = '';  // 사용자의 이름을 저장할 변수
 let isUserNameSet = false; // 사용자 이름이 설정되었는지 확인하는 변수
+let isSpeechEnabled = true; // 음성 재생 활성화 여부
 
 async function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
@@ -12,13 +14,11 @@ function sendMessage(userMessage) {
     return new Promise((resolve, reject) => {
         if (!userMessage) return reject("No user message provided");
 
-        let OPENAI_API_KEY = 'c2stcHJvai1ESE53R0xSZERhNVY4dmpoTmwyUVQzQmxia0ZKR0laMkpXNnJkVlUzTGViT3JUcjM='; // 실제 API 키로 교체
+        let OPENAI_API_KEY = 'API_KEY'; // 실제 API 키로 교체
 
         const xhr = new XMLHttpRequest();
         const url = 'https://api.openai.com/v1/chat/completions';
         console.log(url);
-
-        OPENAI_API_KEY = atob(OPENAI_API_KEY);
 
         xhr.open('POST', url, true);
         xhr.setRequestHeader('Content-Type', 'application/json');
@@ -32,7 +32,12 @@ function sendMessage(userMessage) {
                     resolve(completionMessage);
                 } else {
                     const errorResponse = JSON.parse(xhr.responseText);
-                    reject(errorResponse.error.message);
+                    console.error('Error:', errorResponse);
+                    if (xhr.status === 429) {
+                        reject("나는 너무 피곤해.. zzzz");
+                    } else {
+                        reject(errorResponse.error.message);
+                    }
                 }
             }
         };
@@ -73,6 +78,19 @@ function typeWriter(element, text, delay = 25) {
     typing();
 }
 
+function speakText(text) {
+    if (isSpeechEnabled) {
+        const utterance = new SpeechSynthesisUtterance(text);
+        speechSynthesis.speak(utterance);
+    }
+}
+
+toggleSpeechButton.addEventListener('click', () => {
+    isSpeechEnabled = !isSpeechEnabled;
+    toggleSpeechButton.classList.toggle('active', isSpeechEnabled);
+    toggleSpeechButton.textContent = isSpeechEnabled ? '🔊' : '🔇';
+});
+
 sendButton.addEventListener('click', async () => {
     const message = userInput.value;
     console.log('User clicked send with message:', message);
@@ -94,10 +112,12 @@ sendButton.addEventListener('click', async () => {
         }
         const aiMessage = document.createElement('p');
         aiMessage.classList.add('ai');
-        aiMessage.innerHTML = `<img src="https://i.pinimg.com/736x/d4/4b/53/d44b5391bf855f9d9703e15059c3cdf2.jpg" alt="김건희"> <span>김건희: 반가워${userName ? ", " + userName : ""}... 무엇을 도와줄까...</span>`;
+        const welcomeMessage = `김건희: 반가워${userName ? ", " + userName : ""}... 무엇을 도와줄까...`;
+        aiMessage.innerHTML = `<img src="https://i.pinimg.com/736x/d4/4b/53/d44b5391bf855f9d9703e15059c3cdf2.jpg" alt="김건희"> <span>${welcomeMessage}</span>`;
         chatBox.appendChild(aiMessage);
         chatBox.scrollTop = chatBox.scrollHeight;
         userInput.focus();
+        speakText(welcomeMessage);
         return;
     }
 
@@ -112,15 +132,19 @@ sendButton.addEventListener('click', async () => {
 
         chatBox.scrollTop = chatBox.scrollHeight;
 
-        typeWriter(aiMessage.querySelector('span'), `김건희: ${aiResponse}`, 25);
+        const fullMessage = `김건희: ${aiResponse}`;
+        typeWriter(aiMessage.querySelector('span'), fullMessage, 25);
+        speakText(fullMessage);
         userInput.focus();
     } catch (error) {
         console.error('Error:', error);
         const aiMessage = document.createElement('p');
         aiMessage.classList.add('ai');
-        aiMessage.innerHTML = `<img src="https://i.pinimg.com/736x/d4/4b/53/d44b5391bf855f9d9703e15059c3cdf2.jpg" alt="김건희"> <span>김건희: 오류가 발생했어...</span>`;
+        const errorMessage = `김건희: ${error}`;
+        aiMessage.innerHTML = `<img src="https://i.pinimg.com/736x/d4/4b/53/d44b5391bf855f9d9703e15059c3cdf2.jpg" alt="김건희"> <span>${errorMessage}</span>`;
         chatBox.appendChild(aiMessage);
         chatBox.scrollTop = chatBox.scrollHeight;
+        speakText(errorMessage);
         userInput.focus();
     }
 });
@@ -137,11 +161,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const aiMessage = document.createElement('p');
     aiMessage.classList.add('ai');
-    aiMessage.innerHTML = `<img src="https://i.pinimg.com/736x/d4/4b/53/d44b5391bf855f9d9703e15059c3cdf2.jpg" alt="김건희"> <span>김건희: ${randomGreeting}</span>`;
+    const greetingMessage = `김건희: ${randomGreeting}`;
+    aiMessage.innerHTML = `<img src="https://i.pinimg.com/736x/d4/4b/53/d44b5391bf855f9d9703e15059c3cdf2.jpg" alt="김건희"> <span>${greetingMessage}</span>`;
     chatBox.appendChild(aiMessage);
 
     // Ensure first message is visible
     chatBox.scrollTop = chatBox.scrollHeight;
+    speakText(greetingMessage);
 
     userInput.addEventListener('keydown', (event) => {
         if (event.key === 'Enter') {
@@ -151,6 +177,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Adjust chat-container height when keyboard is shown/hidden
     userInput.addEventListener('focus', () => {
+        document.documentElement.style.overflow = 'hidden'; // Prevent scrolling
+        document.body.style.overflow = 'hidden'; // Prevent scrolling
         setTimeout(() => {
             const chatBox = document.getElementById('chat-box');
             chatBox.style.height = 'calc(100vh - 110px)'; // Adjust for keyboard height
@@ -159,6 +187,8 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     userInput.addEventListener('blur', () => {
+        document.documentElement.style.overflow = 'auto'; // Allow scrolling
+        document.body.style.overflow = 'auto'; // Allow scrolling
         const chatBox = document.getElementById('chat-box');
         chatBox.style.height = 'calc(100vh - 60px)'; // Reset height
         chatBox.scrollTop = chatBox.scrollHeight;
