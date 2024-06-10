@@ -41,6 +41,11 @@ html, body {
 
 #chat-box p {
     margin: 10px 0;
+    transition: border-color 0.1s ease; /* 테두리 색 전환 효과 추가 */
+}
+
+#chat-box .highlight {
+    border: 2px solid #01ff70; /* 초록색 테두리 */
 }
 
 #chat-box .user {
@@ -53,6 +58,7 @@ html, body {
     color: #01ff70; /* 섬뜩한 초록색 */
     display: flex;
     align-items: center;
+    border: 2px solid transparent; /* 초기 테두리 색상 */
 }
 
 #chat-box .ai img {
