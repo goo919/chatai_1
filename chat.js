@@ -10,9 +10,10 @@ let maleVoice = null; // 남성 목소리 저장 변수
 // 음성 목록을 가져와서 남성 목소리를 설정하는 함수
 function setMaleVoice() {
     const voices = speechSynthesis.getVoices();
+    console.log('Available voices:', voices); // 음성 목록 출력
     maleVoice = voices.find(voice => voice.name.includes('Male') || voice.name.includes('남자'));
-    if (!maleVoice) {
-        // 기본값으로 첫 번째 목소리 설정
+    if (!maleVoice && voices.length > 0) {
+        // 남성 목소리가 없는 경우 첫 번째 목소리 설정
         maleVoice = voices[0];
     }
 }
