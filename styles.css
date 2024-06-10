@@ -99,3 +99,20 @@ html, body {
 #send-button:hover {
     background: #00e360; /* 버튼에 약간의 밝기 변화 */
 }
+
+#toggle-speech-button {
+    position: fixed;
+    top: 10px;
+    right: 10px;
+    background: #01ff70; /* 섬뜩한 초록색 버튼 */
+    color: #1b001f; /* 어두운 배경 */
+    border: none;
+    border-radius: 20px; /* 둥근 모서리 */
+    cursor: pointer;
+    padding: 10px;
+    font-size: 16px;
+}
+
+#toggle-speech-button.active {
+    background: #00e360; /* 활성화 시 버튼에 약간의 밝기 변화 */
+}
