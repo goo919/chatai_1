@@ -2,34 +2,31 @@ const chatBox = document.getElementById('chat-box');
 const userInput = document.getElementById('user-input');
 const sendButton = document.getElementById('send-button');
 const toggleSpeechButton = document.getElementById('toggle-speech-button');
+const beepSound = document.getElementById('beep-sound');
 let userName = '';  // 사용자의 이름을 저장할 변수
 let isUserNameSet = false; // 사용자 이름이 설정되었는지 확인하는 변수
 let isSpeechEnabled = true; // 음성 재생 활성화 여부
-let maleVoice = null; // 남성 목소리 저장 변수
 
-// 음성 목록을 가져와서 남성 목소리를 설정하는 함수
-function setMaleVoice() {
-    const voices = speechSynthesis.getVoices();
-    console.log('Available voices:', voices); // 음성 목록 출력
-    maleVoice = voices.find(voice => voice.name.includes('Male') || voice.name.includes('남자'));
-    if (!maleVoice && voices.length > 0) {
-        // 남성 목소리가 없는 경우 첫 번째 목소리 설정
-        maleVoice = voices[0];
-    }
+// 비프음 재생 함수
+function playBeep() {
+    beepSound.currentTime = 0;
+    beepSound.play();
 }
 
-// 음성 설정 함수
-function speakText(text) {
-    if (isSpeechEnabled) {
-        const utterance = new SpeechSynthesisUtterance(text.replace('김건희: ', ''));
-        if (maleVoice) {
-            utterance.voice = maleVoice;
+// 텍스트를 비프음과 함께 출력하는 함수
+function typeWriter(element, text, delay = 25) {
+    element.innerHTML = ''; // 기존 텍스트 초기화
+    let i = 0;
+    function typing() {
+        if (i < text.length) {
+            element.innerHTML += text.charAt(i);
+            playBeep(); // 각 글자마다 비프음 재생
+            i++;
+            setTimeout(typing, delay);
         }
-        speechSynthesis.speak(utterance);
     }
+    typing();
 }
-
-speechSynthesis.onvoiceschanged = setMaleVoice;
 
 async function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
@@ -89,19 +86,6 @@ function sendMessage(userMessage) {
     });
 }
 
-function typeWriter(element, text, delay = 25) {
-    element.innerHTML = ''; // 기존 텍스트 초기화
-    let i = 0;
-    function typing() {
-        if (i < text.length) {
-            element.innerHTML += text.charAt(i);
-            i++;
-            setTimeout(typing, delay);
-        }
-    }
-    typing();
-}
-
 toggleSpeechButton.addEventListener('click', () => {
     isSpeechEnabled = !isSpeechEnabled;
     toggleSpeechButton.classList.toggle('active', isSpeechEnabled);
@@ -119,18 +103,17 @@ sendButton.addEventListener('click', async () => {
     chatBox.appendChild(userMessage);
     userInput.value = '';
 
-    if (!isUserNameSet) {
-        if (message.trim().toLowerCase() === "싫어" || message.trim().toLowerCase() === "안알려줄래") {
-            userName = '이름을 원치 않는 사람'; 
-            isUserNameSet = true; 
-        } else {
-            userName = message.replace(/[^\w\s]/gi, '').split(" ")[0]; 
-            isUserNameSet = true;
-        }
-        return; // 추가 메시지 출력 안함
-    }
-
     try {
+        if (!isUserNameSet) {
+            if (message.trim().toLowerCase() === "싫어" || message.trim().toLowerCase() === "안알려줄래") {
+                userName = '이름을 원치 않는 사람'; 
+                isUserNameSet = true; 
+            } else {
+                userName = message.replace(/[^\w\s]/gi, '').split(" ")[0]; 
+                isUserNameSet = true;
+            }
+        }
+
         const aiResponse = await sendMessage(message);
 
         const aiMessage = document.createElement('p');
@@ -143,7 +126,6 @@ sendButton.addEventListener('click', async () => {
 
         const fullMessage = `김건희: ${aiResponse}`;
         typeWriter(aiMessage.querySelector('span'), fullMessage, 25);
-        speakText(aiResponse); // '김건희:'를 제거한 메시지
         userInput.focus();
     } catch (error) {
         console.error('Error:', error);
@@ -153,7 +135,6 @@ sendButton.addEventListener('click', async () => {
         aiMessage.innerHTML = `<img src="https://i.pinimg.com/736x/d4/4b/53/d44b5391bf855f9d9703e15059c3cdf2.jpg" alt="김건희"> <span>${errorMessage}</span>`;
         chatBox.appendChild(aiMessage);
         chatBox.scrollTop = chatBox.scrollHeight;
-        speakText(error.replace('김건희: ', '')); // '김건희:'를 제거한 메시지
         userInput.focus();
     }
 });
@@ -176,7 +157,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Ensure first message is visible
     chatBox.scrollTop = chatBox.scrollHeight;
-    speakText(randomGreeting); // '김건희:'를 제거한 메시지
+    typeWriter(aiMessage.querySelector('span'), randomGreeting, 25);
 
     userInput.addEventListener('keydown', (event) => {
         if (event.key === 'Enter') {
