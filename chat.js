@@ -14,7 +14,7 @@ function sendMessage(userMessage) {
     return new Promise((resolve, reject) => {
         if (!userMessage) return reject("No user message provided");
 
-        let OPENAI_API_KEY = 'API_KEY'; // 실제 API 키로 교체
+        let OPENAI_API_KEY = 'c2stcHJvai1ESE53R0xSZERhNVY4dmpoTmwyUVQzQmxia0ZKR0laMkpXNnJkVlUzTGViT3JUcjM='; // 실제 API 키로 교체
 
         const xhr = new XMLHttpRequest();
         const url = 'https://api.openai.com/v1/chat/completions';
