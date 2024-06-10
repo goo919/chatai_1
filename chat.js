@@ -127,15 +127,7 @@ sendButton.addEventListener('click', async () => {
             userName = message.replace(/[^\w\s]/gi, '').split(" ")[0]; 
             isUserNameSet = true;
         }
-        const aiMessage = document.createElement('p');
-        aiMessage.classList.add('ai');
-        const welcomeMessage = `김건희: 반가워${userName ? ", " + userName : ""}... 무엇을 도와줄까...`;
-        aiMessage.innerHTML = `<img src="https://i.pinimg.com/736x/d4/4b/53/d44b5391bf855f9d9703e15059c3cdf2.jpg" alt="김건희"> <span>${welcomeMessage}</span>`;
-        chatBox.appendChild(aiMessage);
-        chatBox.scrollTop = chatBox.scrollHeight;
-        userInput.focus();
-        speakText(welcomeMessage);
-        return;
+        return; // 추가 메시지 출력 안함
     }
 
     try {
