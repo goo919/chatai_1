@@ -1,4 +1,5 @@
 const chatBox = document.getElementById('chat-box');
+const chatContainer = document.getElementById('chat-container');
 const userInput = document.getElementById('user-input');
 const sendButton = document.getElementById('send-button');
 const toggleSpeechButton = document.getElementById('toggle-speech-button');
@@ -13,7 +14,7 @@ function playBeep() {
     beepSound.play();
 }
 
-// 텍스트를 비프음과 함께 출력하고, 채팅 태두리가 점멸하는 함수
+// 텍스트를 비프음과 함께 출력하고, 채팅 창 태두리가 점멸하는 함수
 function typeWriter(element, text, delay = 25) {
     element.innerHTML = ''; // 기존 텍스트 초기화
     let i = 0;
@@ -21,9 +22,9 @@ function typeWriter(element, text, delay = 25) {
         if (i < text.length) {
             element.innerHTML += text.charAt(i);
             playBeep(); // 각 글자마다 비프음 재생
-            element.classList.add('highlight'); // 채팅 태두리 점멸
+            chatContainer.classList.add('highlight'); // 채팅 창 태두리 점멸
             setTimeout(() => {
-                element.classList.remove('highlight'); // 점멸 제거
+                chatContainer.classList.remove('highlight'); // 점멸 제거
             }, delay);
             i++;
             setTimeout(typing, delay);
@@ -174,8 +175,7 @@ document.addEventListener('DOMContentLoaded', () => {
         document.documentElement.style.overflow = 'hidden'; // Prevent scrolling
         document.body.style.overflow = 'hidden'; // Prevent scrolling
         setTimeout(() => {
-            const chatBox = document.getElementById('chat-box');
-            chatBox.style.height = 'calc(100vh - 110px)'; // Adjust for keyboard height
+            chatContainer.style.height = 'calc(100vh - 110px)'; // Adjust for keyboard height
             chatBox.scrollTop = chatBox.scrollHeight;
         }, 300);
     });
@@ -183,8 +183,7 @@ document.addEventListener('DOMContentLoaded', () => {
     userInput.addEventListener('blur', () => {
         document.documentElement.style.overflow = 'auto'; // Allow scrolling
         document.body.style.overflow = 'auto'; // Allow scrolling
-        const chatBox = document.getElementById('chat-box');
-        chatBox.style.height = 'calc(100vh - 60px)'; // Reset height
+        chatContainer.style.height = 'calc(100vh - 60px)'; // Reset height
         chatBox.scrollTop = chatBox.scrollHeight;
     });
 });
