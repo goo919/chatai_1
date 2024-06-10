@@ -5,6 +5,30 @@ const toggleSpeechButton = document.getElementById('toggle-speech-button');
 let userName = '';  // 사용자의 이름을 저장할 변수
 let isUserNameSet = false; // 사용자 이름이 설정되었는지 확인하는 변수
 let isSpeechEnabled = true; // 음성 재생 활성화 여부
+let maleVoice = null; // 남성 목소리 저장 변수
+
+// 음성 목록을 가져와서 남성 목소리를 설정하는 함수
+function setMaleVoice() {
+    const voices = speechSynthesis.getVoices();
+    maleVoice = voices.find(voice => voice.name.includes('Male') || voice.name.includes('남자'));
+    if (!maleVoice) {
+        // 기본값으로 첫 번째 목소리 설정
+        maleVoice = voices[0];
+    }
+}
+
+// 음성 설정 함수
+function speakText(text) {
+    if (isSpeechEnabled) {
+        const utterance = new SpeechSynthesisUtterance(text.replace('김건희: ', ''));
+        if (maleVoice) {
+            utterance.voice = maleVoice;
+        }
+        speechSynthesis.speak(utterance);
+    }
+}
+
+speechSynthesis.onvoiceschanged = setMaleVoice;
 
 async function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
@@ -14,11 +38,10 @@ function sendMessage(userMessage) {
     return new Promise((resolve, reject) => {
         if (!userMessage) return reject("No user message provided");
 
-        let OPENAI_API_KEY = 'c2stcHJvai1ESE53R0xSZERhNVY4dmpoTmwyUVQzQmxia0ZKR0laMkpXNnJkVlUzTGViT3JUcjM='; // 실제 API 키로 교체
+        const OPENAI_API_KEY = atob('c2stcHJvai1ESE53R0xSZERhNVY4dmpoTmwyUVQzQmxia0ZKR0laMkpXNnJkVlUzTGViT3JUcjM='); // 디코딩된 API 키 사용
 
         const xhr = new XMLHttpRequest();
         const url = 'https://api.openai.com/v1/chat/completions';
-        console.log(url);
 
         xhr.open('POST', url, true);
         xhr.setRequestHeader('Content-Type', 'application/json');
@@ -78,13 +101,6 @@ function typeWriter(element, text, delay = 25) {
     typing();
 }
 
-function speakText(text) {
-    if (isSpeechEnabled) {
-        const utterance = new SpeechSynthesisUtterance(text);
-        speechSynthesis.speak(utterance);
-    }
-}
-
 toggleSpeechButton.addEventListener('click', () => {
     isSpeechEnabled = !isSpeechEnabled;
     toggleSpeechButton.classList.toggle('active', isSpeechEnabled);
@@ -134,7 +150,7 @@ sendButton.addEventListener('click', async () => {
 
         const fullMessage = `김건희: ${aiResponse}`;
         typeWriter(aiMessage.querySelector('span'), fullMessage, 25);
-        speakText(fullMessage);
+        speakText(aiResponse); // '김건희:'를 제거한 메시지
         userInput.focus();
     } catch (error) {
         console.error('Error:', error);
@@ -144,7 +160,7 @@ sendButton.addEventListener('click', async () => {
         aiMessage.innerHTML = `<img src="https://i.pinimg.com/736x/d4/4b/53/d44b5391bf855f9d9703e15059c3cdf2.jpg" alt="김건희"> <span>${errorMessage}</span>`;
         chatBox.appendChild(aiMessage);
         chatBox.scrollTop = chatBox.scrollHeight;
-        speakText(errorMessage);
+        speakText(error.replace('김건희: ', '')); // '김건희:'를 제거한 메시지
         userInput.focus();
     }
 });
@@ -167,7 +183,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Ensure first message is visible
     chatBox.scrollTop = chatBox.scrollHeight;
-    speakText(greetingMessage);
+    speakText(randomGreeting); // '김건희:'를 제거한 메시지
 
     userInput.addEventListener('keydown', (event) => {
         if (event.key === 'Enter') {
