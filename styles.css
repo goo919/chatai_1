@@ -3,7 +3,7 @@ html, body {
     margin: 0;
     overflow: hidden; /* 화면 전체 스크롤 방지 */
     font-family: 'Courier New', Courier, monospace;
-    background-color: #4b0000; /* 어두운 빨강 배경 */
+    background-color: #2b0000; /* 더 어두운 빨강 배경 */
     color: #ffffff; /* 흰색 글씨 */
 }
 
@@ -23,7 +23,7 @@ html, body {
     width: 100%;
     max-width: 600px;
     height: 100%; /* 화면 전체를 차지하도록 설정 */
-    background: #1b001f; /* 어두운 배경 */
+    background: #0b001f; /* 더 어두운 배경 */
     box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
     border-radius: 5px;
     display: flex;
