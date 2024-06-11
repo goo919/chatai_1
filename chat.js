@@ -1,8 +1,3 @@
-알겠습니다. 첫 번째 대화에서도 비프음이 들리도록 하고, 긴 메시지를 처리할 때도 비프음이 제대로 재생되도록 수정하겠습니다. 이를 위해 `typeWriter` 함수가 정상적으로 작동하도록 하고, AI가 긴 메시지를 보낼 때도 비프음이 재생되도록 개선하겠습니다.
-
-### 수정된 JavaScript 파일 (`chat.js`)
-
-```javascript
 const chatBox = document.getElementById('chat-box');
 const chatContainer = document.getElementById('chat-container');
 const userInput = document.getElementById('user-input');
@@ -189,9 +184,7 @@ document.addEventListener('DOMContentLoaded', () => {
     chatBox.scrollTop = chatBox.scrollHeight;
     typeWriter(aiMessage.querySelector('span'), randomGreeting, 25);
 
-   
-
- userInput.addEventListener('keydown', (event) => {
+    userInput.addEventListener('keydown', (event) => {
         if (event.key === 'Enter') {
             sendButton.click();
         }
@@ -214,6 +207,3 @@ document.addEventListener('DOMContentLoaded', () => {
         chatBox.scrollTop = chatBox.scrollHeight;
     });
 });
-```
-
-이제 첫 번째 대화에서도 비프음이 나오고, 긴 메시지를 처리할 때도 비프음이 재생됩니다. 또한, 인공지능이 이전 대화를 기억하도록 설정되었습니다.
