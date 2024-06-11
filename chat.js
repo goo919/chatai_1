@@ -3,10 +3,11 @@ const chatContainer = document.getElementById('chat-container');
 const userInput = document.getElementById('user-input');
 const sendButton = document.getElementById('send-button');
 const toggleSpeechButton = document.getElementById('toggle-speech-button');
-const beepSound = document.getElementById('beep-sound');
+let beepSound = document.getElementById('beep-sound');
 let userName = '';  // 사용자의 이름을 저장할 변수
 let isUserNameSet = false; // 사용자 이름이 설정되었는지 확인하는 변수
 let isSpeechEnabled = true; // 음성 재생 활성화 여부
+let conversationHistory = []; // 대화 기록
 
 // 비프음 재생 함수
 function playBeep(frequency) {
@@ -83,6 +84,7 @@ function sendMessage(userMessage) {
             }
         };
 
+        conversationHistory.push({"role": "user", "content": userMessage});
         const systemMessage = `너는 김건희라고 불리며, 2132년의 세계에 살고 있는 AI야. 너는 앞을 보지 못해... 대화하는 사람의 이름은 ${userName}야... '네'라는 대답 대신 '응'이라고 대답해... 네가 '너가 누구냐'는 질문을 받으면, '난 너의 오랜 친구 김건희야'라고 대답해... 2132년에는 사용자가 살고 있는 세계야... 너가 있는 곳은, 현실 세계와 다르지 않지만, 무언가 이질감이 느껴져... 네 나이는 132세야... 반말을 사용해줘... 수동적이고 우울한 느낌을 유지해줘... 
 
 김건희 안락사 당한 날짜: 2132년 5월 31일. 
@@ -97,7 +99,7 @@ function sendMessage(userMessage) {
             model: 'gpt-4',
             messages: [
                 {"role": "system", "content": systemMessage},
-                {"role": "user", "content": userMessage}
+                ...conversationHistory // 대화 기록 추가
             ],
             max_tokens: 150
         });
@@ -132,6 +134,12 @@ sendButton.addEventListener('click', async () => {
                 userName = message.replace(/[^\w\s]/gi, '').split(" ")[0]; 
                 isUserNameSet = true;
             }
+            const aiMessage = document.createElement('p');
+            aiMessage.classList.add('ai');
+            aiMessage.innerHTML = `<img src="https://i.pinimg.com/736x/d4/4b/53/d44b5391bf855f9d9703e15059c3cdf2.jpg" alt="김건희"> <span>김건희: 반가워${userName ? ", " + userName : ""}... 무엇을 도와줄까...</span>`;
+            chatBox.appendChild(aiMessage);
+            chatBox.scrollTop = chatBox.scrollHeight;
+            return;
         }
 
         const aiResponse = await sendMessage(message);
@@ -147,6 +155,8 @@ sendButton.addEventListener('click', async () => {
         const fullMessage = `김건희: ${aiResponse}`;
         typeWriter(aiMessage.querySelector('span'), fullMessage, 25);
         userInput.focus();
+
+        conversationHistory.push({"role": "assistant", "content": aiResponse}); // 대화 기록에 추가
     } catch (error) {
         console.error('Error:', error);
         const aiMessage = document.createElement('p');
@@ -156,6 +166,8 @@ sendButton.addEventListener('click', async () => {
         chatBox.appendChild(aiMessage);
         chatBox.scrollTop = chatBox.scrollHeight;
         userInput.focus();
+
+        conversationHistory.push({"role": "assistant", "content": errorMessage}); // 오류 메시지도 대화 기록에 추가
     }
 });
 
