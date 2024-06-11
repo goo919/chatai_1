@@ -9,9 +9,23 @@ let isUserNameSet = false; // 사용자 이름이 설정되었는지 확인하�
 let isSpeechEnabled = true; // 음성 재생 활성화 여부
 
 // 비프음 재생 함수
-function playBeep() {
-    beepSound.currentTime = 0;
-    beepSound.play();
+function playBeep(frequency) {
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const oscillator = audioCtx.createOscillator();
+    const gainNode = audioCtx.createGain();
+
+    oscillator.connect(gainNode);
+    gainNode.connect(audioCtx.destination);
+
+    if (frequency) {
+        oscillator.frequency.setValueAtTime(frequency, audioCtx.currentTime);
+    } else {
+        oscillator.frequency.setValueAtTime(440, audioCtx.currentTime); // 기본 주파수
+    }
+    
+    oscillator.type = 'sine';
+    oscillator.start();
+    oscillator.stop(audioCtx.currentTime + 0.1); // 짧은 비프음
 }
 
 // 텍스트를 비프음과 함께 출력하고, 채팅 창 태두리가 점멸하는 함수
@@ -21,7 +35,8 @@ function typeWriter(element, text, delay = 25) {
     function typing() {
         if (i < text.length) {
             element.innerHTML += text.charAt(i);
-            playBeep(); // 각 글자마다 비프음 재생
+            const frequency = 200 + (text.charCodeAt(i) % 300); // 각 문자에 대해 다른 주파수 설정
+            playBeep(frequency); // 각 글자마다 비프음 재생
             chatContainer.classList.add('highlight'); // 채팅 창 태두리 점멸
             setTimeout(() => {
                 chatContainer.classList.remove('highlight'); // 점멸 제거
