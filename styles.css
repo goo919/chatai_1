@@ -34,7 +34,8 @@ html, body {
 }
 
 #chat-container.highlight {
-    background: linear-gradient(to top, rgba(1, 255, 112, 0.3), transparent); /* 초록색 그라데이션 배경 */
+    background: linear-gradient(to top, rgba(1, 255, 112, 0.3), transparent), url('https://upload.wikimedia.org/wikipedia/commons/c/c1/Matrix_code.svg');
+    background-size: cover; /* 초록색 그라데이션 배경에 메트릭스 스타일 모자이크 */
 }
 
 #chat-box {
