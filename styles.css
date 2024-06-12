@@ -30,10 +30,11 @@ html, body {
     flex-direction: column;
     overflow: hidden; /* 내부 스크롤로 제한 */
     border: 2px solid transparent; /* 초기 테두리 색상 */
+    transition: background 0.3s ease-in-out; /* 배경 전환 효과 추가 */
 }
 
 #chat-container.highlight {
-    border: 2px solid #01ff70; /* 초록색 테두리 */
+    background: linear-gradient(to top, rgba(1, 255, 112, 0.3), transparent); /* 초록색 그라데이션 배경 */
 }
 
 #chat-box {
@@ -121,4 +122,35 @@ html, body {
 
 #toggle-speech-button.active {
     background: #00e360; /* 활성화 시 버튼에 약간의 밝기 변화 */
+}
+
+/* 로딩 표시 */
+.loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.loading .dot {
+    width: 8px;
+    height: 8px;
+    margin: 0 2px;
+    background-color: #01ff70; /* 초록색 점 */
+    border-radius: 50%;
+    animation: blink 1s infinite ease-in-out alternate;
+}
+
+.loading .dot:nth-child(2) {
+    animation-delay: 0.2s;
+}
+
+.loading .dot:nth-child(3) {
+    animation-delay: 0.4s;
+}
+
+@keyframes blink {
+    to {
+        opacity: 0.1;
+        transform: translateY(-2px);
+    }
 }
