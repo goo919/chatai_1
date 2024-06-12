@@ -2,7 +2,7 @@ html, body {
     height: 100%;
     margin: 0;
     overflow: hidden; /* 화면 전체 스크롤 방지 */
-    font-family: 'Courier New', Courier, monospace;
+    font-family: '궁서', 'Gungseo', 'Gungsuh', serif; /* 궁서체로 설정 */
     background-color: #2b0000; /* 더 어두운 빨강 배경 */
     color: #ffffff; /* 흰색 글씨 */
 }
@@ -93,6 +93,7 @@ html, body {
     color: #ffffff; /* 흰색 글씨 */
     font-size: 16px; /* Prevent zooming on mobile */
     margin-right: 10px; /* 버튼과 간격 */
+    font-family: '궁서', 'Gungseo', 'Gungsuh', serif; /* 궁서체로 설정 */
 }
 
 #send-button {
@@ -103,6 +104,7 @@ html, body {
     border-radius: 20px; /* 둥근 모서리 */
     cursor: pointer;
     font-size: 16px; /* Maintain button font size consistency */
+    font-family: '궁서', 'Gungseo', 'Gungsuh', serif; /* 궁서체로 설정 */
 }
 
 #send-button:hover {
@@ -120,6 +122,7 @@ html, body {
     cursor: pointer;
     padding: 10px;
     font-size: 16px;
+    font-family: '궁서', 'Gungseo', 'Gungsuh', serif; /* 궁서체로 설정 */
 }
 
 #toggle-speech-button.active {
@@ -210,6 +213,7 @@ html, body {
     max-width: 300px;
     text-align: center;
     border-radius: 10px;
+    font-family: '궁서', 'Gungseo', 'Gungsuh', serif; /* 궁서체로 설정 */
 }
 
 .modal-content h2 {
@@ -222,6 +226,7 @@ html, body {
     margin-bottom: 20px;
     border: 1px solid #ccc;
     border-radius: 5px;
+    font-family: '궁서', 'Gungseo', 'Gungsuh', serif; /* 궁서체로 설정 */
 }
 
 #submit-guestbook, #close-name-modal {
@@ -231,6 +236,7 @@ html, body {
     border: none;
     border-radius: 5px;
     cursor: pointer;
+    font-family: '궁서', 'Gungseo', 'Gungsuh', serif; /* 궁서체로 설정 */
 }
 
 #submit-guestbook:hover, #close-name-modal:hover {
@@ -248,6 +254,7 @@ html, body {
     border: none;
     border-radius: 5px;
     cursor: pointer;
+    font-family: '궁서', 'Gungseo', 'Gungsuh', serif; /* 궁서체로 설정 */
 }
 
 #show-name-button:hover {
