@@ -29,7 +29,7 @@ function playBeep(frequency) {
     oscillator.stop(audioCtx.currentTime + 0.1); // 짧은 비프음
 }
 
-// 텍스트를 비프음과 함께 출력하고, 채팅 창 태두리가 점멸하는 함수
+// 텍스트를 비프음과 함께 출력하고, 채팅 창 배경이 점멸하는 함수
 function typeWriter(element, text, delay = 25) {
     element.innerHTML = ''; // 기존 텍스트 초기화
     let i = 0;
@@ -38,7 +38,7 @@ function typeWriter(element, text, delay = 25) {
             element.innerHTML += text.charAt(i);
             const frequency = 200 + (text.charCodeAt(i) % 300); // 각 문자에 대해 다른 주파수 설정
             playBeep(frequency); // 각 글자마다 비프음 재생
-            chatContainer.classList.add('highlight'); // 채팅 창 태두리 점멸
+            chatContainer.classList.add('highlight'); // 채팅 창 배경 점멸
             setTimeout(() => {
                 chatContainer.classList.remove('highlight'); // 점멸 제거
             }, delay);
@@ -149,10 +149,19 @@ sendButton.addEventListener('click', async () => {
         isUserNameSet = true;
     }
 
+    // 로딩 표시 추가
+    const loadingIndicator = document.createElement('div');
+    loadingIndicator.classList.add('loading');
+    loadingIndicator.innerHTML = '<span class="dot"></span><span class="dot"></span><span class="dot"></span>';
+    chatBox.appendChild(loadingIndicator);
+    chatBox.scrollTop = chatBox.scrollHeight;
+
     try {
         const aiResponse = await sendMessage(message);
         conversationHistory.push({ "role": "user", "content": message });
         conversationHistory.push({ "role": "assistant", "content": aiResponse });
+
+        chatBox.removeChild(loadingIndicator); // 로딩 표시 제거
 
         const aiMessage = document.createElement('p');
         aiMessage.classList.add('ai');
@@ -166,6 +175,8 @@ sendButton.addEventListener('click', async () => {
         splitAndTypeWriter(aiMessage.querySelector('span'), fullMessage, 150, 25);
         userInput.focus();
     } catch (error) {
+        chatBox.removeChild(loadingIndicator); // 로딩 표시 제거
+
         const aiMessage = document.createElement('p');
         aiMessage.classList.add('ai');
         aiMessage.innerHTML = `<img src="https://i.pinimg.com/736x/d4/4b/53/d44b5391bf855f9d9703e15059c3cdf2.jpg" alt="김건희"> <span>김건희: ${error.message}</span>`;
