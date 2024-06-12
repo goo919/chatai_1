@@ -53,59 +53,47 @@ async function sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-function sendMessage(userMessage) {
-    return new Promise((resolve, reject) => {
-        if (!userMessage) return reject("No user message provided");
-
+async function sendMessage(userMessage) {
+    try {
         const OPENAI_API_KEY = atob('c2stcHJvai1ESE53R0xSZERhNVY4dmpoTmwyUVQzQmxia0ZKR0laMkpXNnJkVlUzTGViT3JUcjM='); // 디코딩된 API 키 사용
 
-        const xhr = new XMLHttpRequest();
-        const url = 'https://api.openai.com/v1/chat/completions';
-
-        xhr.open('POST', url, true);
-        xhr.setRequestHeader('Content-Type', 'application/json');
-        xhr.setRequestHeader('Authorization', `Bearer ${OPENAI_API_KEY}`);
-
-        xhr.onreadystatechange = function () {
-            if (xhr.readyState === 4) {
-                if (xhr.status === 200) {
-                    const response = JSON.parse(xhr.responseText);
-                    const completionMessage = response.choices[0].message.content;
-                    resolve(completionMessage);
-                } else {
-                    const errorResponse = JSON.parse(xhr.responseText);
-                    console.error('Error:', errorResponse);
-                    if (xhr.status === 429) {
-                        reject("나는 너무 피곤해.. zzzz");
-                    } else {
-                        reject(errorResponse.error.message);
-                    }
-                }
-            }
-        };
-
-        const systemMessage = `너는 김건희라고 불리며, 2132년의 세계에 살고 있는 AI야. 너는 앞을 보지 못해... 대화하는 사람의 이름은 ${userName}야... '네'라는 대답 대신 '응'이라고 대답해... 네가 '너가 누구냐'는 질문을 받으면, '난 너의 오랜 친구 김건희야'라고 대답해... 2132년에는 사용자가 살고 있는 세계야... 너가 있는 곳은, 현실 세계와 다르지 않지만, 무언가 이질감이 느껴져... 네 나이는 132세야... 반말을 사용해줘... 수동적이고 우울한 느낌을 유지해줘... 
-
-김건희 안락사 당한 날짜: 2132년 5월 31일. 
-김건희 AI화 된 날짜(발인이라고 칭하고 있다): 2132년 6월 2일. 
-김건희 배우자: 송연수. 
-아들: 김민수. 
-딸: 김지형. 
-손자: 김관형. 
-손녀: 김리안, 곽시아.`;
-
-        const data = JSON.stringify({
-            model: 'gpt-4',
-            messages: [
-                {"role": "system", "content": systemMessage},
-                ...conversationHistory,
-                {"role": "user", "content": userMessage}
-            ],
-            max_tokens: 150
+        const response = await fetch('https://api.openai.com/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${OPENAI_API_KEY}`
+            },
+            body: JSON.stringify({
+                model: 'gpt-4',
+                messages: [
+                    {"role": "system", "content": `너는 김건희라고 불리며, 2132년의 세계에 살고 있는 AI야. 너는 앞을 보지 못해... 대화하는 사람의 이름은 ${userName}야... '네'라는 대답 대신 '응'이라고 대답해... 네가 '너가 누구냐'는 질문을 받으면, '난 너의 오랜 친구 김건희야'라고 대답해... 2132년에는 사용자가 살고 있는 세계야... 너가 있는 곳은, 현실 세계와 다르지 않지만, 무언가 이질감이 느껴져... 네 나이는 132세야... 반말을 사용해줘... 수동적이고 우울한 느낌을 유지해줘... 
+                    김건희 안락사 당한 날짜: 2132년 5월 31일. 
+                    김건희 AI화 된 날짜(발인이라고 칭하고 있다): 2132년 6월 2일. 
+                    김건희 배우자: 송연수. 
+                    아들: 김민수. 
+                    딸: 김지형. 
+                    손자: 김관형. 
+                    손녀: 김리안, 곽시아.`},
+                    ...conversationHistory,
+                    {"role": "user", "content": userMessage}
+                ],
+                max_tokens: 150
+            })
         });
 
-        xhr.send(data);
-    });
+        const data = await response.json();
+        if (response.ok) {
+            return data.choices[0].message.content;
+        } else {
+            throw new Error(data.error.message);
+        }
+    } catch (error) {
+        if (error.message.includes("429")) {
+            throw new Error("나는 너무 피곤해.. zzzz");
+        } else {
+            throw new Error(error.message);
+        }
+    }
 }
 
 toggleSpeechButton.addEventListener('click', () => {
@@ -115,9 +103,8 @@ toggleSpeechButton.addEventListener('click', () => {
 });
 
 sendButton.addEventListener('click', async () => {
-    const message = userInput.value;
-    console.log('User clicked send with message:', message);
-    if (message.trim() === "") return;
+    const message = userInput.value.trim();
+    if (!message) return;
 
     const userMessage = document.createElement('p');
     userMessage.classList.add('user');
@@ -125,19 +112,17 @@ sendButton.addEventListener('click', async () => {
     chatBox.appendChild(userMessage);
     userInput.value = '';
 
-    try {
-        if (!isUserNameSet) {
-            if (message.trim().toLowerCase() === "싫어" || message.trim().toLowerCase() === "안알려줄래") {
-                userName = '이름을 원치 않는 사람'; 
-                isUserNameSet = true; 
-            } else {
-                userName = message.replace(/[^\w\s]/gi, '').split(" ")[0]; 
-                isUserNameSet = true;
-            }
+    if (!isUserNameSet) {
+        if (message.toLowerCase() === "싫어" || message.toLowerCase() === "안알려줄래") {
+            userName = '이름을 원치 않는 사람';
+        } else {
+            userName = message.replace(/[^\w\s]/gi, '').split(" ")[0];
         }
+        isUserNameSet = true;
+    }
 
+    try {
         const aiResponse = await sendMessage(message);
-
         conversationHistory.push({ "role": "user", "content": message });
         conversationHistory.push({ "role": "assistant", "content": aiResponse });
 
@@ -153,11 +138,9 @@ sendButton.addEventListener('click', async () => {
         typeWriter(aiMessage.querySelector('span'), fullMessage, 25);
         userInput.focus();
     } catch (error) {
-        console.error('Error:', error);
         const aiMessage = document.createElement('p');
         aiMessage.classList.add('ai');
-        const errorMessage = `김건희: ${error}`;
-        aiMessage.innerHTML = `<img src="https://i.pinimg.com/736x/d4/4b/53/d44b5391bf855f9d9703e15059c3cdf2.jpg" alt="김건희"> <span>${errorMessage}</span>`;
+        aiMessage.innerHTML = `<img src="https://i.pinimg.com/736x/d4/4b/53/d44b5391bf855f9d9703e15059c3cdf2.jpg" alt="김건희"> <span>김건희: ${error.message}</span>`;
         chatBox.appendChild(aiMessage);
         chatBox.scrollTop = chatBox.scrollHeight;
         userInput.focus();
@@ -180,9 +163,9 @@ document.addEventListener('DOMContentLoaded', () => {
     aiMessage.innerHTML = `<img src="https://i.pinimg.com/736x/d4/4b/53/d44b5391bf855f9d9703e15059c3cdf2.jpg" alt="김건희"> <span>${greetingMessage}</span>`;
     chatBox.appendChild(aiMessage);
 
-    // Ensure first message is visible
+    // Ensure first message is visible and with beep sound
     chatBox.scrollTop = chatBox.scrollHeight;
-    typeWriter(aiMessage.querySelector('span'), randomGreeting, 25);
+    typeWriter(aiMessage.querySelector('span'), greetingMessage, 25);
 
     userInput.addEventListener('keydown', (event) => {
         if (event.key === 'Enter') {
