@@ -49,8 +49,36 @@ function typeWriter(element, text, delay = 25) {
     typing();
 }
 
-async function sleep(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
+// 긴 메시지를 나누어 출력하는 함수
+function splitAndTypeWriter(element, text, maxLength = 150, delay = 25) {
+    const textParts = [];
+    let part = '';
+    let partLength = 0;
+
+    for (const word of text.split(' ')) {
+        if (partLength + word.length + 1 > maxLength) {
+            textParts.push(part);
+            part = '';
+            partLength = 0;
+        }
+        part += (part.length ? ' ' : '') + word;
+        partLength += word.length + 1;
+    }
+
+    if (part.length) {
+        textParts.push(part);
+    }
+
+    async function typeParts() {
+        for (const part of textParts) {
+            await new Promise(resolve => {
+                typeWriter(element, part, delay);
+                setTimeout(resolve, part.length * delay);
+            });
+        }
+    }
+
+    typeParts();
 }
 
 async function sendMessage(userMessage) {
@@ -135,7 +163,7 @@ sendButton.addEventListener('click', async () => {
         chatBox.scrollTop = chatBox.scrollHeight;
 
         const fullMessage = `김건희: ${aiResponse}`;
-        typeWriter(aiMessage.querySelector('span'), fullMessage, 25);
+        splitAndTypeWriter(aiMessage.querySelector('span'), fullMessage, 150, 25);
         userInput.focus();
     } catch (error) {
         const aiMessage = document.createElement('p');
@@ -165,7 +193,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Ensure first message is visible and with beep sound
     chatBox.scrollTop = chatBox.scrollHeight;
-    typeWriter(aiMessage.querySelector('span'), greetingMessage, 25);
+    splitAndTypeWriter(aiMessage.querySelector('span'), greetingMessage, 150, 25);
 
     userInput.addEventListener('keydown', (event) => {
         if (event.key === 'Enter') {
