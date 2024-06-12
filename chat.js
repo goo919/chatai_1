@@ -174,6 +174,11 @@ sendButton.addEventListener('click', async () => {
         const fullMessage = `김건희: ${aiResponse}`;
         splitAndTypeWriter(aiMessage.querySelector('span'), fullMessage, 150, 25);
         userInput.focus();
+
+        // AI가 주도적으로 이야기 진행
+        setTimeout(() => {
+            sendButton.click();
+        }, 5000); // 5초 후 AI가 추가로 이야기함
     } catch (error) {
         chatBox.removeChild(loadingIndicator); // 로딩 표시 제거
 
