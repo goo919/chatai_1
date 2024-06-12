@@ -245,6 +245,7 @@ html, body {
     max-height: 300px;
     overflow-y: auto;
     font-family: 'Courier New', Courier, monospace; /* 궁서체가 웹에서 기본적으로 지원되지 않으므로 대체 폰트 사용 */
+    color: #000000; /* 검정색 글씨 */
 }
 
 .stored-name {
