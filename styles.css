@@ -229,13 +229,31 @@ html, body {
     margin: 0 0 20px 0;
 }
 
-#guestbook-name, #stored-name {
+#guestbook-name {
     width: 100%;
     padding: 10px;
     margin-bottom: 20px;
     border: 1px solid #ccc;
     border-radius: 5px;
     font-family: 'Courier New', Courier, monospace; /* 궁서체가 웹에서 기본적으로 지원되지 않으므로 대체 폰트 사용 */
+}
+
+#stored-names {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    max-height: 300px;
+    overflow-y: auto;
+    font-family: 'Courier New', Courier, monospace; /* 궁서체가 웹에서 기본적으로 지원되지 않으므로 대체 폰트 사용 */
+}
+
+.stored-name {
+    writing-mode: vertical-rl;
+    text-orientation: mixed;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    padding: 5px;
+    margin: 5px;
 }
 
 #submit-guestbook, #close-name-modal {
