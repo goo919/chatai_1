@@ -208,17 +208,17 @@ html, body {
 
 #stored-names {
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
     align-items: center;
     max-height: 300px;
-    overflow-y: auto;
+    overflow-x: auto; /* 가로 스크롤 가능 */
     font-family: 'Courier New', Courier, monospace; /* 궁서체가 웹에서 기본적으로 지원되지 않으므로 대체 폰트 사용 */
     color: #ffffff; /* 흰색 글씨 */
 }
 
 .stored-name {
     writing-mode: vertical-rl;
-    text-orientation: mixed;
+    text-orientation: upright;
     border: 1px solid #5e002a;
     border-radius: 5px;
     padding: 5px;
