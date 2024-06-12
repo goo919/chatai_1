@@ -9,7 +9,23 @@ let isUserNameSet = false; // 사용자 이름이 설정되었는지 확인하�
 let isSpeechEnabled = true; // 음성 재생 활성화 여부
 let conversationHistory = []; // 대화 기록을 저장할 배열
 
-// 비프음 재생 함수
+// 국화 꽃잎 생성 함수
+function createFlower() {
+    const flower = document.createElement('div');
+    flower.className = 'flower';
+    flower.style.left = `${Math.random() * 100}vw`;
+    flower.style.animationDuration = `${5 + Math.random() * 5}s`; // 5초에서 10초 사이의 애니메이션 지속 시간
+    document.querySelector('.falling-flowers').appendChild(flower);
+
+    // 꽃잎 제거
+    setTimeout(() => {
+        flower.remove();
+    }, 10000);
+}
+
+// 일정 시간마다 꽃잎 생성
+setInterval(createFlower, 500);
+
 function playBeep(frequency) {
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     const oscillator = audioCtx.createOscillator();
@@ -29,7 +45,6 @@ function playBeep(frequency) {
     oscillator.stop(audioCtx.currentTime + 0.1); // 짧은 비프음
 }
 
-// 텍스트를 비프음과 함께 출력하고, 채팅 창 배경이 점멸하는 함수
 function typeWriter(element, text, delay = 25) {
     element.innerHTML = ''; // 기존 텍스트 초기화
     let i = 0;
@@ -49,7 +64,6 @@ function typeWriter(element, text, delay = 25) {
     typing();
 }
 
-// 긴 메시지를 나누어 출력하는 함수
 function splitAndTypeWriter(element, text, maxLength = 150, delay = 25) {
     const textParts = [];
     let part = '';
