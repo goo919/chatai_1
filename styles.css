@@ -167,11 +167,11 @@ html, body {
     width: 100%;
     height: 100%;
     overflow: auto;
-    background-color: rgba(0, 0, 0, 0.5);
+    background-color: rgba(0, 0, 0, 0.8);
 }
 
 .modal-content {
-    background-color: #fefefe;
+    background-color: #1b001f;
     margin: 15% auto;
     padding: 20px;
     border: 1px solid #888;
@@ -180,18 +180,22 @@ html, body {
     text-align: center;
     border-radius: 10px;
     font-family: 'Courier New', Courier, monospace; /* 궁서체가 웹에서 기본적으로 지원되지 않으므로 대체 폰트 사용 */
+    color: #ffffff;
 }
 
 .modal-content h2 {
     margin: 0 0 20px 0;
+    color: #01ff70;
 }
 
 #guestbook-name {
     width: 100%;
     padding: 10px;
     margin-bottom: 20px;
-    border: 1px solid #ccc;
+    border: 1px solid #5e002a;
     border-radius: 5px;
+    background: #0b001f;
+    color: #ffffff;
     font-family: 'Courier New', Courier, monospace; /* 궁서체가 웹에서 기본적으로 지원되지 않으므로 대체 폰트 사용 */
 }
 
@@ -199,7 +203,7 @@ html, body {
     font-size: 24px;
     font-weight: bold;
     margin-bottom: 10px;
-    color: #000000; /* 검정색 글씨 */
+    color: #01ff70; /* 섬뜩한 초록색 */
 }
 
 #stored-names {
@@ -209,16 +213,17 @@ html, body {
     max-height: 300px;
     overflow-y: auto;
     font-family: 'Courier New', Courier, monospace; /* 궁서체가 웹에서 기본적으로 지원되지 않으므로 대체 폰트 사용 */
-    color: #000000; /* 검정색 글씨 */
+    color: #ffffff; /* 흰색 글씨 */
 }
 
 .stored-name {
     writing-mode: vertical-rl;
     text-orientation: mixed;
-    border: 1px solid #ccc;
+    border: 1px solid #5e002a;
     border-radius: 5px;
     padding: 5px;
     margin: 5px;
+    background: #0b001f;
 }
 
 #submit-guestbook, #close-name-modal {
