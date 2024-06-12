@@ -16,23 +16,6 @@ let isUserNameSet = false; // 사용자 이름이 설정되었는지 확인하�
 let isSpeechEnabled = true; // 음성 재생 활성화 여부
 let conversationHistory = []; // 대화 기록을 저장할 배열
 
-// 국화 꽃잎 생성 함수
-function createFlower() {
-    const flower = document.createElement('div');
-    flower.className = 'flower';
-    flower.style.left = `${Math.random() * 100}vw`;
-    flower.style.animationDuration = `${5 + Math.random() * 5}s`; // 5초에서 10초 사이의 애니메이션 지속 시간
-    document.querySelector('.falling-flowers').appendChild(flower);
-
-    // 꽃잎 제거
-    setTimeout(() => {
-        flower.remove();
-    }, 10000);
-}
-
-// 일정 시간마다 꽃잎 생성
-setInterval(createFlower, 500);
-
 function playBeep(frequency) {
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     const oscillator = audioCtx.createOscillator();
@@ -303,7 +286,7 @@ function saveName(name) {
 // Display stored names in modal
 function displayStoredNames() {
     const names = JSON.parse(localStorage.getItem('guestbookNames')) || [];
-    storedNamesContainer.innerHTML = '';
+    storedNamesContainer.innerHTML = '<div id="stored-names-title">방명록</div>'; // 방명록 제목 추가
     names.forEach(name => {
         const nameElement = document.createElement('div');
         nameElement.classList.add('stored-name');
