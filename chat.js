@@ -3,6 +3,9 @@ const chatContainer = document.getElementById('chat-container');
 const userInput = document.getElementById('user-input');
 const sendButton = document.getElementById('send-button');
 const toggleSpeechButton = document.getElementById('toggle-speech-button');
+const guestbookModal = document.getElementById('guestbook-modal');
+const guestbookNameInput = document.getElementById('guestbook-name');
+const submitGuestbookButton = document.getElementById('submit-guestbook');
 const beepSound = document.getElementById('beep-sound');
 let userName = '';  // 사용자의 이름을 저장할 변수
 let isUserNameSet = false; // 사용자 이름이 설정되었는지 확인하는 변수
@@ -179,7 +182,7 @@ sendButton.addEventListener('click', async () => {
 
         const aiMessage = document.createElement('p');
         aiMessage.classList.add('ai');
-        const aiMessageContent = `<img src="https://i.pinimg.com/736x/d4/4b/53/d44b5391bf855f9d9703e15059c3cdf2.jpg" alt="김건희"> <span></span>`;
+        const aiMessageContent = `<img src="https://i.pinimg.com/originals/1e/9e/a6/1e9ea645b698b680c8977ac3bcefc687.png" alt="김건희"> <span></span>`;
         aiMessage.innerHTML = aiMessageContent;
         chatBox.appendChild(aiMessage);
 
@@ -198,7 +201,7 @@ sendButton.addEventListener('click', async () => {
 
         const aiMessage = document.createElement('p');
         aiMessage.classList.add('ai');
-        aiMessage.innerHTML = `<img src="https://i.pinimg.com/736x/d4/4b/53/d44b5391bf855f9d9703e15059c3cdf2.jpg" alt="김건희"> <span>김건희: ${error.message}</span>`;
+        aiMessage.innerHTML = `<img src="https://i.pinimg.com/originals/1e/9e/a6/1e9ea645b698b680c8977ac3bcefc687.png" alt="김건희"> <span>김건희: ${error.message}</span>`;
         chatBox.appendChild(aiMessage);
         chatBox.scrollTop = chatBox.scrollHeight;
         userInput.focus();
@@ -218,7 +221,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const aiMessage = document.createElement('p');
     aiMessage.classList.add('ai');
     const greetingMessage = `김건희: ${randomGreeting}`;
-    aiMessage.innerHTML = `<img src="https://i.pinimg.com/736x/d4/4b/53/d44b5391bf855f9d9703e15059c3cdf2.jpg" alt="김건희"> <span>${greetingMessage}</span>`;
+    aiMessage.innerHTML = `<img src="https://i.pinimg.com/originals/1e/9e/a6/1e9ea645b698b680c8977ac3bcefc687.png" alt="김건희"> <span>${greetingMessage}</span>`;
     chatBox.appendChild(aiMessage);
 
     // Ensure first message is visible and with beep sound
@@ -247,4 +250,25 @@ document.addEventListener('DOMContentLoaded', () => {
         chatContainer.style.height = 'calc(100vh - 60px)'; // Reset height
         chatBox.scrollTop = chatBox.scrollHeight;
     });
+
+    // Check if a name is already stored in localStorage
+    const storedName = localStorage.getItem('guestbookName');
+    if (storedName) {
+        userName = storedName;
+        isUserNameSet = true;
+    } else {
+        // Show the guestbook modal if no name is stored
+        guestbookModal.style.display = 'block';
+    }
+});
+
+// Handle guestbook submission
+submitGuestbookButton.addEventListener('click', () => {
+    const name = guestbookNameInput.value.trim();
+    if (name) {
+        userName = name;
+        isUserNameSet = true;
+        localStorage.setItem('guestbookName', name);
+        guestbookModal.style.display = 'none';
+    }
 });
