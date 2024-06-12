@@ -6,6 +6,10 @@ const toggleSpeechButton = document.getElementById('toggle-speech-button');
 const guestbookModal = document.getElementById('guestbook-modal');
 const guestbookNameInput = document.getElementById('guestbook-name');
 const submitGuestbookButton = document.getElementById('submit-guestbook');
+const nameModal = document.getElementById('name-modal');
+const storedNameElement = document.getElementById('stored-name');
+const closeNameModalButton = document.getElementById('close-name-modal');
+const showNameButton = document.getElementById('show-name-button');
 const beepSound = document.getElementById('beep-sound');
 let userName = '';  // 사용자의 이름을 저장할 변수
 let isUserNameSet = false; // 사용자 이름이 설정되었는지 확인하는 변수
@@ -271,4 +275,16 @@ submitGuestbookButton.addEventListener('click', () => {
         localStorage.setItem('guestbookName', name);
         guestbookModal.style.display = 'none';
     }
+});
+
+// Handle show name button click
+showNameButton.addEventListener('click', () => {
+    const storedName = localStorage.getItem('guestbookName');
+    storedNameElement.textContent = storedName ? storedName : '저장된 이름이 없습니다.';
+    nameModal.style.display = 'block';
+});
+
+// Handle close name modal button click
+closeNameModalButton.addEventListener('click', () => {
+    nameModal.style.display = 'none';
 });
