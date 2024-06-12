@@ -35,7 +35,7 @@ html, body {
 
 #chat-container.highlight {
     background: linear-gradient(to top, rgba(1, 255, 112, 0.3), transparent), url('https://upload.wikimedia.org/wikipedia/commons/c/c1/Matrix_code.svg');
-    background-size: 300%; /* 초록색 그라데이션 배경에 메트릭스 스타일 모자이크 */
+    background-size: 1000%; /* 모자이크 크기 확대 */
     background-repeat: repeat;
 }
 
@@ -171,9 +171,9 @@ html, body {
 
 .flower {
     position: absolute;
-    width: 10px; /* 낮은 픽셀 크기 */
-    height: 10px; /* 낮은 픽셀 크기 */
-    background: url('https://upload.wikimedia.org/wikipedia/commons/e/ec/Chrysanthemum_morifolium3.jpg'); /* 국화 이미지 사용 */
+    width: 20px; /* 국화 꽃잎 크기 조정 */
+    height: 20px; /* 국화 꽃잎 크기 조정 */
+    background: url('https://upload.wikimedia.org/wikipedia/commons/8/84/Chrysanthemum.jpg'); /* 국화 이미지 */
     background-size: cover;
     opacity: 0.8;
     animation: fall linear infinite;
