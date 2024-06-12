@@ -17,7 +17,6 @@
     </div>
     <button id="toggle-speech-button">🔊</button>
     <audio id="beep-sound" src="audio/beep.mp3"></audio>
-    <div class="falling-flowers"></div> <!-- 꽃잎 애니메이션을 위한 요소 추가 -->
 
     <!-- 방명록 모달 -->
     <div id="guestbook-modal" class="modal">
@@ -31,14 +30,15 @@
     <!-- 이름 확인 모달 -->
     <div id="name-modal" class="modal">
         <div class="modal-content">
-            <h2> 방명록</h2>
+            <h2>방명록</h2>
+            <div id="stored-names-title">방명록</div>
             <div id="stored-names"></div>
             <button id="close-name-modal">닫기</button>
         </div>
     </div>
 
     <!-- 이름 확인 버튼 -->
-    <button id="show-name-button"> 방명록 확인 </button>
+    <button id="show-name-button">방명록 확인</button>
 
     <script src="chat.js"></script>
 </body>
