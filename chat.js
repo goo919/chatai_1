@@ -7,7 +7,7 @@ const guestbookModal = document.getElementById('guestbook-modal');
 const guestbookNameInput = document.getElementById('guestbook-name');
 const submitGuestbookButton = document.getElementById('submit-guestbook');
 const nameModal = document.getElementById('name-modal');
-const storedNameElement = document.getElementById('stored-name');
+const storedNamesContainer = document.getElementById('stored-names');
 const closeNameModalButton = document.getElementById('close-name-modal');
 const showNameButton = document.getElementById('show-name-button');
 const beepSound = document.getElementById('beep-sound');
@@ -168,6 +168,7 @@ sendButton.addEventListener('click', async () => {
             userName = message.replace(/[^\w\s]/gi, '').split(" ")[0];
         }
         isUserNameSet = true;
+        saveName(userName); // 이름 저장
     }
 
     // 로딩 표시 추가
@@ -260,6 +261,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (storedName) {
         userName = storedName;
         isUserNameSet = true;
+        saveName(userName); // 이름 저장
     } else {
         // Show the guestbook modal if no name is stored
         guestbookModal.style.display = 'block';
@@ -274,13 +276,13 @@ submitGuestbookButton.addEventListener('click', () => {
         isUserNameSet = true;
         localStorage.setItem('guestbookName', name);
         guestbookModal.style.display = 'none';
+        saveName(userName); // 이름 저장
     }
 });
 
 // Handle show name button click
 showNameButton.addEventListener('click', () => {
-    const storedName = localStorage.getItem('guestbookName');
-    storedNameElement.textContent = storedName ? storedName : '저장된 이름이 없습니다.';
+    displayStoredNames();
     nameModal.style.display = 'block';
 });
 
@@ -288,3 +290,24 @@ showNameButton.addEventListener('click', () => {
 closeNameModalButton.addEventListener('click', () => {
     nameModal.style.display = 'none';
 });
+
+// Save name to local storage and global list
+function saveName(name) {
+    let names = JSON.parse(localStorage.getItem('guestbookNames')) || [];
+    if (!names.includes(name)) {
+        names.push(name);
+        localStorage.setItem('guestbookNames', JSON.stringify(names));
+    }
+}
+
+// Display stored names in modal
+function displayStoredNames() {
+    const names = JSON.parse(localStorage.getItem('guestbookNames')) || [];
+    storedNamesContainer.innerHTML = '';
+    names.forEach(name => {
+        const nameElement = document.createElement('div');
+        nameElement.classList.add('stored-name');
+        nameElement.textContent = name;
+        storedNamesContainer.appendChild(nameElement);
+    });
+}
