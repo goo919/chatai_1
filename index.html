@@ -1,47 +1,207 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Chat</title>
-    <link rel="stylesheet" href="styles.css">
-</head>
-<body>
-    <div id="version-info">Version 0.0.4</div>
-    <div id="chat-container">
-        <div id="chat-box"></div>
-        <div id="input-container">
-            <input type="text" id="user-input" placeholder="고인에게 말을 걸어주세요">
-            <button id="send-button">Send</button>
-        </div>
-    </div>
-    <button id="toggle-speech-button">🔊</button>
-    <audio id="beep-sound" src="audio/beep.mp3"></audio>
-    <div class="falling-flowers"></div> <!-- 꽃잎 애니메이션을 위한 요소 추가 -->
+html, body {
+    height: 100%;
+    margin: 0;
+    overflow: hidden; /* 화면 전체 스크롤 방지 */
+    font-family: 'Courier New', Courier, monospace; /* 궁서체가 웹에서 기본적으로 지원되지 않으므로 대체 폰트 사용 */
+    background-color: #2b0000; /* 더 어두운 빨강 배경 */
+    color: #ffffff; /* 흰색 글씨 */
+}
 
-    <!-- 방명록 모달 -->
-    <div id="guestbook-modal" class="modal">
-        <div class="modal-content">
-            <h2>방명록 작성</h2>
-            <input type="text" id="guestbook-name" placeholder="이름을 입력하세요">
-            <button id="submit-guestbook">제출</button>
-        </div>
-    </div>
+#version-info {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    background: rgba(0, 0, 0, 0.5);
+    padding: 5px 10px;
+    border-radius: 5px;
+    font-size: 12px;
+    color: #ffffff;
+    z-index: 1000;
+}
 
-    <!-- 이름 확인 모달 -->
-    <div id="name-modal" class="modal">
-        <div class="modal-content">
-            <h2>저장된 이름</h2>
-            <div id="stored-names-container">
-                <p id="stored-names"></p>
-            </div>
-            <button id="close-name-modal">닫기</button>
-        </div>
-    </div>
+#chat-container {
+    width: 100%;
+    max-width: 600px;
+    height: 100%; /* 화면 전체를 차지하도록 설정 */
+    background: #0b001f; /* 더 어두운 배경 */
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+    border-radius: 5px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden; /* 내부 스크롤로 제한 */
+    border: 2px solid transparent; /* 초기 테두리 색상 */
+    transition: background 0.3s ease-in-out; /* 배경 전환 효과 추가 */
+}
 
-    <!-- 이름 확인 버튼 -->
-    <button id="show-name-button">저장된 이름 확인</button>
+#chat-container.highlight {
+    background: linear-gradient(to top, rgba(1, 255, 112, 0.3), transparent), url('https://upload.wikimedia.org/wikipedia/commons/c/c1/Matrix_code.svg');
+    background-size: 1000%; /* 모자이크 크기 확대 */
+    background-repeat: repeat;
+}
 
-    <script src="chat.js"></script>
-</body>
-</html>
+#chat-box {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+    box-sizing: border-box; /* 패딩 포함 */
+    margin-bottom: 60px; /* 입력창 높이만큼 마진 추가 */
+}
+
+#chat-box p {
+    margin: 10px 0;
+    transition: border-color 0.1s ease; /* 테두리 색 전환 효과 추가 */
+}
+
+#chat-box .user {
+    text-align: right;
+    color: #c70039; /* 강렬한 빨간색 */
+}
+
+#chat-box .ai {
+    text-align: left;
+    color: #01ff70; /* 섬뜩한 초록색 */
+    display: flex;
+    align-items: center;
+}
+
+#chat-box .ai img {
+    margin-right: 10px; /* 이미지와 텍스트 사이의 간격 설정 */
+    width: 30px; /* 이미지 너비 설정 */
+    height: 30px; /* 이미지 높이 설정 */
+    border-radius: 50%; /* 원형 이미지 */
+}
+
+#input-container {
+    display: flex;
+    align-items: center;
+    padding: 10px;
+    background: #5e002a; /* 어두운 빨간색 배경 */
+    position: fixed; /* 고정 위치 */
+    bottom: 0;
+    width: 100%;
+    max-width: 600px;
+    box-sizing: border-box;
+    z-index: 1000;
+}
+
+#user-input {
+    flex: 1;
+    padding: 10px;
+    border: 2px solid #5e002a; /* 어두운 빨간색 경계선 */
+    border-radius: 20px; /* 둥근 모서리 */
+    background: #1b001f; /* 어두운 배경 */
+    color: #ffffff; /* 흰색 글씨 */
+    font-size: 16px; /* Prevent zooming on mobile */
+    margin-right: 10px; /* 버튼과 간격 */
+}
+
+#send-button {
+    padding: 10px;
+    background: #01ff70; /* 섬뜩한 초록색 버튼 */
+    color: #1b001f; /* 어두운 배경 */
+    border: none;
+    border-radius: 20px; /* 둥근 모서리 */
+    cursor: pointer;
+    font-size: 16px; /* Maintain button font size consistency */
+}
+
+#send-button:hover {
+    background: #00e360; /* 버튼에 약간의 밝기 변화 */
+}
+
+#toggle-speech-button {
+    position: fixed;
+    top: 10px;
+    right: 10px;
+    background: #01ff70; /* 섬뜩한 초록색 버튼 */
+    color: #1b001f; /* 어두운 배경 */
+    border: none;
+    border-radius: 20px; /* 둥근 모서리 */
+    cursor: pointer;
+    padding: 10px;
+    font-size: 16px;
+}
+
+#toggle-speech-button.active {
+    background: #00e360; /* 활성화 시 버튼에 약간의 밝기 변화 */
+}
+
+/* 로딩 표시 */
+.loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.loading .dot {
+    width: 8px;
+    height: 8px;
+    margin: 0 2px;
+    background-color: #01ff70; /* 초록색 점 */
+    border-radius: 50%;
+    animation: blink 1s infinite ease-in-out alternate;
+}
+
+.loading .dot:nth-child(2) {
+    animation-delay: 0.2s;
+}
+
+.loading .dot:nth-child(3) {
+    animation-delay: 0.4s;
+}
+
+@keyframes blink {
+    to {
+        opacity: 0.1;
+        transform: translateY(-2px);
+    }
+}
+
+/* 국화 꽃잎 애니메이션 */
+.falling-flowers {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 500;
+    overflow: hidden;
+}
+
+.flower {
+    position: absolute;
+    width: 20px; /* 국화 꽃잎 크기 조정 */
+    height: 20px; /* 국화 꽃잎 크기 조정 */
+    background: url('https://i.pinimg.com/originals/1e/9e/a6/1e9ea645b698b680c8977ac3bcefc687.png'); /* 국화 이미지 */
+    background-size: cover;
+    opacity: 0.8;
+    animation: fall linear infinite, sway 3s ease-in-out infinite; /* 살랑살랑 떨어지는 애니메이션 */
+}
+
+@keyframes fall {
+    0% {
+        transform: translateY(-100px) rotate(0deg);
+    }
+    100% {
+        transform: translateY(100vh) rotate(360deg);
+    }
+}
+
+@keyframes sway {
+    0% {
+        transform: translateX(0);
+    }
+    50% {
+        transform: translateX(20px);
+    }
+    100% {
+        transform: translateX(0);
+    }
+}
+
+/* 모달 스타일 */
+.modal {
+    display: none; /* 숨김 상태 */
+    position: fixed;
+   
