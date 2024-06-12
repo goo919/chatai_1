@@ -283,6 +283,12 @@ function saveName(name) {
     }
 }
 
+// Generate random name
+function generateRandomName() {
+    const names = ["홍길동", "김철수", "이영희", "박민수", "최지현", "조민재", "한성민"];
+    return names[Math.floor(Math.random() * names.length)];
+}
+
 // Display stored names in modal
 function displayStoredNames() {
     const names = JSON.parse(localStorage.getItem('guestbookNames')) || [];
@@ -290,7 +296,7 @@ function displayStoredNames() {
     names.forEach(name => {
         const nameElement = document.createElement('div');
         nameElement.classList.add('stored-name');
-        nameElement.textContent = name;
+        nameElement.textContent = `${name} - ${generateRandomName()}`;
         storedNamesContainer.appendChild(nameElement);
     });
 }
