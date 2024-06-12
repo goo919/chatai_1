@@ -285,7 +285,12 @@ function saveName(name) {
 
 // Generate random name
 function generateRandomName() {
-    const names = ["홍길동", "김철수", "이영희", "박민수", "최지현", "조민재", "한성민"];
+    const names = [
+        "남지수", "김철수", "이영희", "박민수", "최지현", "조민재", "한성민", "정다은", "오지훈", "유승현", 
+        "임지호", "장수현", "백지훈", "윤소희", "강하늘", "신동엽", "안소연", "정우진", "하은비", "황현수", 
+        "이채영", "송유진", "고아라", "문승현", "서지수", "정민수", "류지연", "조현우", "김예지", "박수진",
+        "이정훈", "전지현", "조수아", "김도현", "한지민", "이민호", "송지은", "이재영", "홍수아", "유지연"
+    ];
     return names[Math.floor(Math.random() * names.length)];
 }
 
@@ -293,10 +298,23 @@ function generateRandomName() {
 function displayStoredNames() {
     const names = JSON.parse(localStorage.getItem('guestbookNames')) || [];
     storedNamesContainer.innerHTML = '<div id="stored-names-title">방명록</div>'; // 방명록 제목 추가
-    names.forEach(name => {
+
+    // Add random names to the list, including the user's name
+    const combinedNames = [...names];
+    while (combinedNames.length < 40) {
+        const randomName = generateRandomName();
+        if (!combinedNames.includes(randomName)) {
+            combinedNames.push(randomName);
+        }
+    }
+
+    // Shuffle the list to mix user name with random names
+    combinedNames.sort(() => Math.random() - 0.5);
+
+    combinedNames.forEach(name => {
         const nameElement = document.createElement('div');
         nameElement.classList.add('stored-name');
-        nameElement.textContent = `${name} - ${generateRandomName()}`;
+        nameElement.textContent = name;
         storedNamesContainer.appendChild(nameElement);
     });
 }
