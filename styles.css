@@ -156,3 +156,34 @@ html, body {
         transform: translateY(-2px);
     }
 }
+
+/* 국화 꽃잎 애니메이션 */
+.falling-flowers {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 500;
+    overflow: hidden;
+}
+
+.flower {
+    position: absolute;
+    width: 10px; /* 낮은 픽셀 크기 */
+    height: 10px; /* 낮은 픽셀 크기 */
+    background: url('https://upload.wikimedia.org/wikipedia/commons/e/ec/Chrysanthemum_morifolium3.jpg'); /* 국화 이미지 사용 */
+    background-size: cover;
+    opacity: 0.8;
+    animation: fall linear infinite;
+}
+
+@keyframes fall {
+    0% {
+        transform: translateY(-100px) rotate(0deg);
+    }
+    100% {
+        transform: translateY(100vh) rotate(360deg);
+    }
+}
