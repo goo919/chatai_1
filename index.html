@@ -7,7 +7,7 @@
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-    <div id="version-info">Version 0.0.3</div>
+    <div id="version-info">Version 0.0.4</div>
     <div id="chat-container">
         <div id="chat-box"></div>
         <div id="input-container">
@@ -18,6 +18,16 @@
     <button id="toggle-speech-button">🔊</button>
     <audio id="beep-sound" src="audio/beep.mp3"></audio>
     <div class="falling-flowers"></div> <!-- 꽃잎 애니메이션을 위한 요소 추가 -->
+
+    <!-- 방명록 모달 -->
+    <div id="guestbook-modal" class="modal">
+        <div class="modal-content">
+            <h2>방명록 작성</h2>
+            <input type="text" id="guestbook-name" placeholder="이름을 입력하세요">
+            <button id="submit-guestbook">제출</button>
+        </div>
+    </div>
+
     <script src="chat.js"></script>
 </body>
 </html>
