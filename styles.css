@@ -189,7 +189,7 @@ html, body {
 }
 
 #guestbook-name {
-    width: 100%;
+    width: 80%; /* 좌우로 작게 조정 */
     padding: 10px;
     margin-bottom: 20px;
     border: 1px solid #5e002a;
