@@ -109,7 +109,7 @@ async function sendMessage(userMessage) {
                     ...conversationHistory,
                     {"role": "user", "content": userMessage}
                 ],
-                max_tokens: 500 // 최대 토큰 수를 500으로 설정
+                max_tokens: 1000 // 최대 토큰 수를 1000으로 설정
             })
         });
 
