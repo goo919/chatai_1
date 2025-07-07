@@ -1,17 +1,15 @@
-server.js
 import express from 'express';
 import fetch from 'node-fetch';
-import dotenv from 'dotenv';
-
-dotenv.config();
 
 const app = express();
 app.use(express.json());
 app.use(express.static('public'));
 
+// 직접 하드코딩된 OpenAI API 키
+const OPENAI_API_KEY = 'sk-proj-TAhllvE1obUwSCoWieawT3BlbkFJkLHwyYAXN6Xwg9aVkAW';
+
 app.post('/api/fetch-openai', async (req, res) => {
     const { message } = req.body;
-    const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
     try {
         const response = await fetch('https://api.openai.com/v1/chat/completions', {
