@@ -8,6 +8,7 @@
 </head>
 <body>
     <div id="version-info">Version 0.0.7</div>
+
     <div id="chat-container">
         <div id="chat-box"></div>
         <div id="input-container">
@@ -15,29 +16,9 @@
             <button id="send-button">Send</button>
         </div>
     </div>
+
     <button id="toggle-speech-button">🔊</button>
     <audio id="beep-sound" src="audio/beep.mp3"></audio>
-
-    <!-- 방명록 모달 -->
-    <div id="guestbook-modal" class="modal">
-        <div class="modal-content">
-            <h2>방명록 작성</h2>
-            <input type="text" id="guestbook-name" placeholder="방명록을 작성해주세요">
-            <button id="submit-guestbook">제출</button>
-        </div>
-    </div>
-
-    <!-- 이름 확인 모달 -->
-    <div id="name-modal" class="modal">
-        <div class="modal-content">
-            방명록</div>
-            <div id="stored-names"></div>
-            <button id="close-name-modal">닫기</button>
-        </div>
-    </div>
-
-    <!-- 이름 확인 버튼 -->
-    <button id="show-name-button">방명록 확인</button>
 
     <script src="chat.js"></script>
 </body>
