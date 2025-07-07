@@ -1,26 +1,29 @@
-<!-- index.html -->
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ko">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Chat</title>
-    <link rel="stylesheet" href="styles.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>김건희 AI 챗</title>
+  <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-    <div id="version-info">Version 0.0.8</div>
+  <div id="version-info">Version 0.0.8</div>
 
-    <div id="chat-container">
-        <div id="chat-box"></div>
-        <div id="input-container">
-            <input type="text" id="user-input" placeholder="고인에게 말을 걸어주세요">
-            <button id="send-button">Send</button>
-        </div>
-    </div>
+  <main id="chat-container">
+    <section id="chat-box"></section>
+    <footer id="input-container">
+      <input
+        type="text"
+        id="user-input"
+        placeholder="고인에게 말을 걸어주세요"
+        autocomplete="off"
+      />
+      <button id="send-button">전송</button>
+    </footer>
+  </main>
 
-    <button id="toggle-speech-button">🔊</button>
-    <audio id="beep-sound" src="audio/beep.mp3"></audio>
-
-    <script src="chat.js"></script>
+  <button id="toggle-speech-button" title="음성 재생 토글">🔊</button>
+  <audio id="beep-sound" src="audio/beep.mp3"></audio>
+  <script src="chat.js"></script>
 </body>
 </html>
