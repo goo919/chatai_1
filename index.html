@@ -7,22 +7,23 @@
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <div id="version-info">Version 0.0.9</div>
+  <div id="version-info">Version 0.0.8</div>
 
-  <main id="chat-container">
-    <section id="chat-box"></section>
-    <footer id="input-container">
-      <input
-        type="text"
-        id="user-input"
-        placeholder="고인에게 말을 걸어주세요"
-        autocomplete="off"
-      />
-      <button id="send-button">전송</button>
-    </footer>
+  <main id="dialogue-container">
+    <div id="character-portrait">
+      <img src="https://i.pinimg.com/originals/d4/4b/53/d44b5391bf855f9d9703e15059c3cdf2.png" alt="김건희 AI" />
+    </div>
+    
+    <div id="chat-output">
+      <p id="chat-message">...</p>
+    </div>
+
+    <div id="nav-controls">
+      <button id="prev-button">⬅️</button>
+      <button id="next-button">➡️</button>
+    </div>
   </main>
 
-  <button id="toggle-speech-button" title="음성 재생 토글">🔊</button>
   <audio id="beep-sound" src="audio/beep.mp3"></audio>
   <script src="chat.js"></script>
 </body>
