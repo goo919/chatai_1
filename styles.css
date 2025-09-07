@@ -1,94 +1,128 @@
-:root{--black:#000;--white:#fff;--border:#fff;--green:#00ff00}
-osc.start(); osc.stop(ctx.currentTime + 0.12);
+:root {
+  --black: #000;
+  --white: #fff;
+  --border: #fff;
+  --green: #00ff00; /* 건희 대사색 (원하면 #fff로 바꿔도 됨) */
 }
 
-// === Safe typewriter ===
-function typeWriter(element, text, delay=16){
-element.textContent = '';
-let i = 0;
-(function tick(){
-if(i < text.length){
-element.textContent += text.charAt(i);
-playBeep(220 + (text.charCodeAt(i)%220));
-i++; setTimeout(tick, delay);
-}
-})();
+* { box-sizing: border-box; }
+
+html, body {
+  height: 100%;
+  margin: 0;
+  background: var(--black);
+  color: var(--white);
+  font-family: 'Press Start 2P', monospace;
 }
 
-function splitAndTypeWriter(element, text, maxLength=160, delay=16){
-const words = text.split(' ');
-const parts = []; let part = '';
-for(const w of words){
-if((part + (part?' ':'') + w).length > maxLength){ parts.push(part); part = w; }
-else{ part += (part?' ':'') + w; }
-}
-if(part) parts.push(part);
-(async ()=>{
-for(const p of parts){
-await new Promise(resolve=>{ typeWriter(element, p, delay); setTimeout(resolve, p.length*delay + 20); });
-}
-})();
+#app {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
 }
 
-function pushHistory(role, content){
-conversationHistory.push({ role, content });
-const MAX = 20; // last 10 turns
-if(conversationHistory.length > MAX){
-conversationHistory = conversationHistory.slice(-MAX);
-}
-}
-
-function renderMessage(role, text){
-const p = document.createElement('p');
-p.className = role;
-if(role === 'ai'){
-const span = document.createElement('span');
-p.appendChild(span);
-chatBox.appendChild(p);
-splitAndTypeWriter(span, `김건희: ${text}`, 160, 16);
-} else {
-p.textContent = `YOU: ${text}`;
-chatBox.appendChild(p);
-}
-chatBox.scrollTop = chatBox.scrollHeight;
+#stage {
+  display: grid;
+  grid-template-rows: auto auto auto;
+  gap: 16px;
+  justify-items: center;
+  width: min(720px, 92vw);
 }
 
-// === Replace with your server proxy later ===
-async function sendMessage(userMessage){
-// TODO: call your backend /api/chat and return content
-return `...${userMessage}에 대한 대답이야.`; // stub
+/* 200×200 중앙 얼굴 */
+#portrait {
+  display: block;
+  width: 200px;
+  height: 200px;
+  image-rendering: pixelated;
+  filter: grayscale(1) contrast(1.05);
 }
 
-sendButton.addEventListener('click', async ()=>{
-const message = userInput.value.trim();
-if(!message) return;
-
-// render user line
-renderMessage('user', message);
-userInput.value = '';
-
-// loading
-const loading = document.createElement('div');
-loading.className='loading';
-loading.innerHTML='<span class="dot"></span><span class="dot"></span><span class="dot"></span>';
-chatBox.appendChild(loading); chatBox.scrollTop = chatBox.scrollHeight;
-
-try{
-const ai = await sendMessage(message);
-pushHistory('user', message);
-pushHistory('assistant', ai);
-loading.remove();
-renderMessage('ai', ai);
-}catch(e){
-loading.remove();
-renderMessage('ai', e.message || '오류가 발생했어.');
+/* 공용 박스 (흰 선, 검정 채움) */
+.box {
+  width: 100%;
+  border: 3px solid var(--border);
+  background: var(--black);
+  padding: 14px;
+  border-radius: 4px;
 }
-});
 
-window.addEventListener('DOMContentLoaded', ()=>{
-// first greet line
-const greet = '...왔구나.';
-const p = document.createElement('p'); p.className='ai'; const span=document.createElement('span'); p.appendChild(span); chatBox.appendChild(p);
-splitAndTypeWriter(span, `김건희: ${greet}`, 160, 16);
-userInput.addEventListener('keydown', e=>{ if(e.key==='Enter') sendButton.click(); });
-});
+#ai-box {
+  min-height: 140px;
+}
+
+/* 대화 출력 */
+#chat-box {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  white-space: pre-wrap;
+  word-break: keep-all;
+}
+
+#chat-box .ai {
+  color: var(--green);
+}
+
+#chat-box .user {
+  color: var(--white);
+  opacity: 0.9;
+  text-align: right;
+}
+
+/* 입력 박스 */
+.box-input {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+#user-input {
+  flex: 1;
+  min-width: 0;
+  border: 2px solid var(--border);
+  background: var(--black);
+  color: var(--white);
+  padding: 10px;
+  font-size: 12px;
+}
+
+.btn {
+  border: 2px solid var(--border);
+  background: transparent;
+  color: var(--white);
+  padding: 10px 14px;
+  cursor: pointer;
+}
+
+.btn:hover {
+  transform: translateY(-2px);
+}
+
+/* 로딩 점 애니메이션 */
+.loading {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+}
+
+.loading .dot {
+  width: 6px;
+  height: 6px;
+  background: var(--white);
+  animation: blink 1s infinite alternate;
+}
+
+.loading .dot:nth-child(2) { animation-delay: .2s; }
+.loading .dot:nth-child(3) { animation-delay: .4s; }
+
+@keyframes blink {
+  to { opacity: .25; transform: translateY(-2px); }
+}
+
+/* 작은 화면 대응 */
+@media (max-width: 420px) {
+  #stage { gap: 12px; }
+  .box { padding: 12px; }
+  #user-input, .btn { padding: 9px 12px; }
+}
