@@ -106,7 +106,7 @@ function renderMessage(role, text) {
 // === 실제 OpenAI 호출 (프론트) ===
 // ⚠️ 여기에 "너가 이전에 쓰던 base64 키"를 넣어.
 // 예) const OPENAI_KEY_B64 = 'c2stcHJvai1...';  (절대 깃에 올리지 마)
-const OPENAI_KEY_B64 = 'c2stcHJvai1UQWhsbHZFMW9iVXdTQ29XaWVhd1QzQmxia0ZKa0xId3lZQVhONlh3ZzlhVmtBV2o='; // <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< 여기에 네 base64 키 붙여넣기
+const OPENAI_KEY_B64 = 'c2stcHJvai1JNEUwWFpnZ2xuXzJQUjEwMVNOamZNcFUtTklvNm9qN29lNEtXUVV6SDlfOUxybzZXR3NpcVhZWjBoWm1PT1FnZGY5c1VhZ3BMQ1QzQmxia0ZKbF9TcDJWM0FYZjB3TGU3ZkFhV2pybk1CNU1ORDBTWXJfYWs0dzM1bkFaQm1hTlRFSEZBTXp1UzVnOHdoN2JYYkhUTmVuMTNQVUE='; // <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< 여기에 네 base64 키 붙여넣기
 function getOpenAIKey() {
   if (!OPENAI_KEY_B64) throw new Error('API 키(base64)를 chat.js에 설정해줘.');
   try { return atob(OPENAI_KEY_B64); } catch { throw new Error('API 키 디코딩 실패'); }
