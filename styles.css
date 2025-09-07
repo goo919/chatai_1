@@ -49,16 +49,20 @@ html, body {
 
 #ai-box {
   min-height: 140px;
+  max-height: 240px;   /* ✅ 원하는 고정 높이 */
+  overflow-y: auto;    /* ✅ 내부만 스크롤 */
 }
 
-/* 대화 출력 */
 #chat-box {
   display: flex;
   flex-direction: column;
   gap: 10px;
   white-space: pre-wrap;
   word-break: keep-all;
+  overflow-y: auto;    /* ✅ 필요시 추가 */
+  max-height: 200px;   /* ✅ 원하는 고정 크기 */
 }
+
 
 #chat-box .ai {
   color: var(--green);
