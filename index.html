@@ -3,12 +3,11 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>김건희 AI 챗 · v0.0.10</title>
+  <title>김건희 AI 챗 · v0.0.11</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400..900&display=swap" rel="stylesheet">
   <style>
-    /* 기본 설정 */
     :root { --accent: #00ffc3; }
     html, body { height: 100%; }
     body {
@@ -24,100 +23,29 @@
       justify-content: center;
     }
 
-    #version-info {
-      position: absolute;
-      top: 10px;
-      left: 10px;
-      font-size: 12px;
-      color: #ccc;
-      opacity: 0.6;
-      z-index: 1000;
-      user-select: none;
-    }
+    #version-info { position:absolute; top:10px; left:10px; font-size:12px; color:#ccc; opacity:0.6; }
 
-    #dialogue-container {
-      width: 100%;
-      max-width: 720px;
-      height: 100dvh;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: space-around;
-      padding: 16px;
-      box-sizing: border-box;
-      gap: 12px;
-    }
+    #dialogue-container { width:100%; max-width:720px; height:100dvh; display:flex; flex-direction:column; align-items:center; justify-content:space-around; padding:16px; box-sizing:border-box; gap:12px; }
 
-    #character-portrait img {
-      height: 33vh;
-      object-fit: contain;
-      filter: grayscale(0.2) drop-shadow(0 0 8px #01ff70);
-      border-radius: 8px;
-      max-width: 92vw;
-    }
+    #character-portrait img { height:33vh; object-fit:contain; filter:grayscale(0.2) drop-shadow(0 0 8px #01ff70); border-radius:8px; max-width:92vw; }
 
-    #chat-output {
-      width: 100%;
-      min-height: 96px;
-      text-align: center;
-      background: rgba(255, 255, 255, 0.05);
-      border: 1px solid color-mix(in srgb, var(--accent) 20%, transparent);
-      padding: 16px;
-      border-radius: 10px;
-      box-shadow: 0 0 8px color-mix(in srgb, var(--accent) 20%, transparent);
-    }
+    #chat-output { width:100%; min-height:96px; text-align:center; background:rgba(255,255,255,0.05); border:1px solid color-mix(in srgb,var(--accent) 20%,transparent); padding:16px; border-radius:10px; box-shadow:0 0 8px color-mix(in srgb,var(--accent) 20%,transparent); }
 
-    #chat-message {
-      font-size: 16px;
-      line-height: 1.6;
-      white-space: pre-wrap;
-    }
+    #chat-message { font-size:16px; line-height:1.6; white-space:pre-wrap; }
 
-    #nav-controls {
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      gap: 12px;
-      margin-top: 6px;
-    }
+    #nav-controls { display:flex; justify-content:center; align-items:center; gap:12px; margin-top:6px; }
+    #nav-controls button { background:var(--accent); color:#000; border:none; padding:8px 14px; font-size:18px; border-radius:10px; cursor:pointer; box-shadow:0 0 6px color-mix(in srgb,var(--accent) 40%,transparent); transition:transform .06s ease; }
+    #nav-controls button:hover { transform:translateY(-1px); }
+    #nav-controls button:disabled { opacity:.45; cursor:not-allowed; box-shadow:none; }
 
-    #nav-controls button {
-      background: var(--accent);
-      color: #000;
-      border: none;
-      padding: 8px 14px;
-      font-size: 18px;
-      border-radius: 10px;
-      cursor: pointer;
-      box-shadow: 0 0 6px color-mix(in srgb, var(--accent) 40%, transparent);
-      transition: transform .06s ease;
-    }
-    #nav-controls button:hover { transform: translateY(-1px); }
-    #nav-controls button:disabled {
-      opacity: .45;
-      cursor: not-allowed;
-      box-shadow: none;
-    }
-
-    /* 키보드 포커스 가시성 */
-    :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-
-    /* 모션 민감 사용자 배려 */
-    @media (prefers-reduced-motion: reduce) {
-      * { animation: none !important; transition: none !important; }
-    }
-      /* 입력 영역 */
     #input-controls { display:flex; gap:10px; width:100%; max-width:720px; padding:0 16px; box-sizing:border-box; }
-    #user-input {
-      flex:1; padding:10px 12px; border-radius:10px; border:1px solid color-mix(in srgb, var(--accent) 25%, transparent);
-      background: rgba(255,255,255,0.08); color:#e0e0e0; font-family: inherit; font-size:16px;
-    }
-    #send-button { background: var(--accent); color:#000; border:none; padding:10px 16px; border-radius:10px; font-size:16px; cursor:pointer; box-shadow:0 0 6px color-mix(in srgb, var(--accent) 40%, transparent); }
-    #send-button:hover { transform: translateY(-1px); }
+    #user-input { flex:1; padding:10px 12px; border-radius:10px; border:1px solid color-mix(in srgb,var(--accent) 25%,transparent); background:rgba(255,255,255,0.08); color:#e0e0e0; font-family:inherit; font-size:16px; }
+    #send-button { background:var(--accent); color:#000; border:none; padding:10px 16px; border-radius:10px; font-size:16px; cursor:pointer; box-shadow:0 0 6px color-mix(in srgb,var(--accent) 40%,transparent); }
+    #send-button:hover { transform:translateY(-1px); }
   </style>
 </head>
 <body>
-  <div id="version-info" aria-hidden="true">Version 0.0.9</div>
+  <div id="version-info">Version 0.0.11</div>
 
   <main id="dialogue-container">
     <div id="character-portrait">
@@ -132,179 +60,56 @@
       <button id="prev-button" type="button" aria-label="이전 대사(←)">⬅️</button>
       <button id="next-button" type="button" aria-label="다음 대사(→)">➡️</button>
     </div>
-      <div id="input-controls">
+    <div id="input-controls">
       <input id="user-input" type="text" placeholder="메시지를 입력하고 Enter 또는 보내기…" aria-label="메시지 입력" />
       <button id="send-button" type="button" aria-label="보내기">보내기</button>
     </div>
   </main>
 
-  <!--
-    v0.0.9 변경점 요약
-    - WebAudio 기반 beep 구현 (모바일 오토플레이 정책 대응: 첫 상호작용 시 AudioContext resume)
-    - 타이핑 중 내비게이션 시 타이핑/사운드 안전 중단 (토큰/타이머 취소)
-    - 키보드 내비게이션(←/→, J/K) 추가 + 버튼 비활성화 상태 처리
-    - prefers-reduced-motion 사용자의 경우 타자 효과/사운드 최소화
-    - 단일 파일로 통합(배포/프리뷰 용이)
-  -->
   <script>
-    // ---------------------- 상태 ----------------------
-    let chatHistory = [
-      "오랜만이야... 기다리고 있었어...",
-      "여긴... 어두운 곳이야. 익숙한 듯 낯선 곳이지...",
-      "왜 왔어...? 다시 나를 부르다니...",
-    ];
+    let chatHistory = ["오랜만이야... 기다리고 있었어...","여긴... 어두운 곳이야. 익숙한 듯 낯선 곳이지...","왜 왔어...? 다시 나를 부르다니..."];
     let currentIndex = chatHistory.length - 1;
-
-    // 접근성/설정
     const prefersReducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-    // ---------------------- 오디오 (WebAudio) ----------------------
-    let audioCtx = null;
-    let audioEnabled = true; // 필요하다면 토글 UI로 확장 가능
+    // 오디오
+    let audioCtx = null; let audioEnabled = true;
+    function ensureAudioCtx(){ if(!audioCtx){ audioCtx=new (window.AudioContext||window.webkitAudioContext)(); } if(audioCtx.state==='suspended'){ audioCtx.resume(); }}
+    function playBeep(freq=440){ if(!audioEnabled||prefersReducedMotion) return; try{ ensureAudioCtx(); const now=audioCtx.currentTime; const osc=audioCtx.createOscillator(); const gain=audioCtx.createGain(); osc.type='square'; osc.frequency.value=freq; gain.gain.setValueAtTime(0.03,now); gain.gain.exponentialRampToValueAtTime(0.0001,now+0.04); osc.connect(gain).connect(audioCtx.destination); osc.start(now); osc.stop(now+0.05);}catch(_){}}
+    ['click','keydown','pointerdown','touchstart'].forEach(evt=>{window.addEventListener(evt,()=>{try{ensureAudioCtx();}catch(_){}} ,{once:true,passive:true});});
 
-    function ensureAudioCtx() {
-      if (!audioCtx) {
-        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      }
-      if (audioCtx.state === 'suspended') {
-        audioCtx.resume();
-      }
+    const output=document.getElementById('chat-message'); let typingTimer=null; let typingToken=0;
+    function stopTyping(){ if(typingTimer){ clearTimeout(typingTimer); typingTimer=null;} typingToken++; }
+    function displayMessage(text){ stopTyping(); output.textContent=''; if(prefersReducedMotion){ output.textContent=text; return;} let i=0; const myToken=typingToken; const step=()=>{ if(myToken!==typingToken) return; if(i<text.length){ output.textContent+=text.charAt(i); if(i%3===0){ const f=250+(text.charCodeAt(i)%200); playBeep(f);} i++; typingTimer=setTimeout(step,25);} }; step(); }
+
+    function updateButtons(){ prevBtn.disabled=currentIndex<=0; nextBtn.disabled=currentIndex>=chatHistory.length-1; }
+    function updateDisplay(){ if(currentIndex>=0 && currentIndex<chatHistory.length){ displayMessage(chatHistory[currentIndex]); updateButtons(); }}
+
+    const prevBtn=document.getElementById('prev-button'); const nextBtn=document.getElementById('next-button');
+    prevBtn.addEventListener('click',()=>{ if(currentIndex>0){ currentIndex--; updateDisplay(); }});
+    nextBtn.addEventListener('click',()=>{ if(currentIndex<chatHistory.length-1){ currentIndex++; updateDisplay(); }});
+
+    window.addEventListener('keydown',(e)=>{ if(e.key==='ArrowLeft'||e.key.toLowerCase()==='j'){ prevBtn.click(); } else if(e.key==='ArrowRight'||e.key.toLowerCase()==='k'){ nextBtn.click(); } else if(e.key==='Escape'){ stopTyping(); }});
+
+    // 입력/대화 처리
+    const inputEl=document.getElementById('user-input'); const sendBtn=document.getElementById('send-button');
+
+    function sendMessage(){ const text=(inputEl.value||'').trim(); if(!text) return; chatHistory.push('너: '+text); // 사용자의 말
+      inputEl.value='';
+      // 간단한 AI 응답 생성 (데모)
+      setTimeout(()=>{ const reply=generateReply(text); chatHistory.push('건희: '+reply); currentIndex=chatHistory.length-1; updateDisplay(); },500);
+      currentIndex=chatHistory.length-1; updateDisplay(); }
+
+    function generateReply(userText){
+      const lower=userText.toLowerCase();
+      if(lower.includes('안녕')) return '안녕... 오랜만이네.';
+      if(lower.includes('누구')) return '나는... 네가 만든 인공지능, 건희야.';
+      if(lower.includes('왜')) return '글쎄... 너도 답을 알고 있지 않아?';
+      return '...계속 말해줘.';
     }
 
-    function playBeep(freq = 440) {
-      if (!audioEnabled || prefersReducedMotion) return; // 민감 사용자 배려
-      try {
-        ensureAudioCtx();
-        const now = audioCtx.currentTime;
-        const osc = audioCtx.createOscillator();
-        const gain = audioCtx.createGain();
-        osc.type = 'square';
-        osc.frequency.value = freq;
-        // 짧고 조용하게 (타자마다 겹침 방지)
-        gain.gain.setValueAtTime(0.03, now);
-        gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.04);
-        osc.connect(gain).connect(audioCtx.destination);
-        osc.start(now);
-        osc.stop(now + 0.05);
-      } catch (_) { /* noop */ }
-    }
+    inputEl.addEventListener('keydown',(e)=>{ if(e.key==='Enter'&&!e.shiftKey){ e.preventDefault(); sendMessage(); }});
+    sendBtn.addEventListener('click',sendMessage);
 
-    // 사용자 상호작용에서 오디오 컨텍스트 활성화
-    ['click', 'keydown', 'pointerdown', 'touchstart'].forEach(evt => {
-      window.addEventListener(evt, () => {
-        try { ensureAudioCtx(); } catch (_) {}
-      }, { once: true, passive: true });
-    });
-
-    // ---------------------- 타자 효과 ----------------------
-    const output = document.getElementById('chat-message');
-    let typingTimer = null;
-    let typingToken = 0; // 새 출력이 시작될 때 증가시켜 이전 작업 무효화
-
-    function stopTyping() {
-      if (typingTimer) {
-        clearTimeout(typingTimer);
-        typingTimer = null;
-      }
-      typingToken++; // 이후 예정된 콜백 무효화
-    }
-
-    function displayMessage(text) {
-      stopTyping();
-      output.textContent = '';
-
-      if (prefersReducedMotion) {
-        output.textContent = text;
-        return;
-      }
-
-      let i = 0;
-      const myToken = typingToken; // 이 호출 고유 토큰
-
-      const step = () => {
-        // 다른 출력이 시작되면 중단
-        if (myToken !== typingToken) return;
-        if (i < text.length) {
-          output.textContent += text.charAt(i);
-          // 너무 시끄럽지 않게: 3글자마다 한 번, 글자 기반 주파수
-          if (i % 3 === 0) {
-            const f = 250 + (text.charCodeAt(i) % 200);
-            playBeep(f);
-          }
-          i++;
-          typingTimer = setTimeout(step, 25);
-        }
-      };
-
-      step();
-    }
-
-    function updateButtons() {
-      prevBtn.disabled = currentIndex <= 0;
-      nextBtn.disabled = currentIndex >= chatHistory.length - 1;
-    }
-
-    function updateDisplay() {
-      if (currentIndex >= 0 && currentIndex < chatHistory.length) {
-        displayMessage(chatHistory[currentIndex]);
-        updateButtons();
-      }
-    }
-
-    // ---------------------- 내비게이션 ----------------------
-    const prevBtn = document.getElementById('prev-button');
-    const nextBtn = document.getElementById('next-button');
-
-    prevBtn.addEventListener('click', () => {
-      if (currentIndex > 0) {
-        currentIndex--;
-        updateDisplay();
-      }
-    });
-
-    nextBtn.addEventListener('click', () => {
-      if (currentIndex < chatHistory.length - 1) {
-        currentIndex++;
-        updateDisplay();
-      }
-    });
-
-    // 키보드: 좌우, J/K 지원
-    window.addEventListener('keydown', (e) => {
-      if (e.key === 'ArrowLeft' || e.key.toLowerCase() === 'j') {
-        prevBtn.click();
-      } else if (e.key === 'ArrowRight' || e.key.toLowerCase() === 'k') {
-        nextBtn.click();
-      } else if (e.key === 'Escape') {
-        // ESC로 현재 타자 즉시 완료
-        stopTyping();
-      }
-    });
-
-    // ---------------------- 입력 처리 ----------------------
-    const inputEl = document.getElementById('user-input');
-    const sendBtn = document.getElementById('send-button');
-
-    function sendMessage() {
-      const text = (inputEl.value || '').trim();
-      if (!text) return;
-      // 사용자가 입력한 문장을 히스토리에 추가하고 최신으로 이동
-      chatHistory.push(text);
-      currentIndex = chatHistory.length - 1;
-      inputEl.value = '';
-      updateDisplay();
-    }
-
-    // 엔터로 전송 (Shift+Enter는 줄바꿈)
-    inputEl.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault();
-        sendMessage();
-      }
-    });
-    sendBtn.addEventListener('click', sendMessage);
-
-    // 초기 렌더
     updateDisplay();
   </script>
 </body>
