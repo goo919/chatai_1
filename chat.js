@@ -181,9 +181,10 @@ sendButton.addEventListener('click', async () => {
         userInput.focus();
 
         // AI가 주도적으로 이야기 진행
-        setTimeout(() => {
-            sendButton.click();
-        }, 5000); // 5초 후 AI가 추가로 이야기함
+const AUTO_CONTINUE = false; // true로 하면 다시 켜짐
+if (AUTO_CONTINUE) {
+  setTimeout(() => sendButton.click(), 5000);
+}
     } catch (error) {
         chatBox.removeChild(loadingIndicator); // 로딩 표시 제거
 
