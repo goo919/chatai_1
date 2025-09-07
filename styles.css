@@ -19,7 +19,7 @@ html, body {
   margin: 0;
   background: var(--black);
   color: var(--white);
-  font-family: 'Press Start 2P', monospace;
+  font-family: 'DungGeunMo', monospace; /* ✅ 기본 폰트 변경 */
 }
 
 #app {
@@ -66,10 +66,9 @@ html, body {
   gap: 10px;
   white-space: pre-wrap;
   word-break: keep-all;
-  overflow-y: auto;    /* ✅ 필요시 추가 */
-  max-height: 200px;   /* ✅ 원하는 고정 크기 */
+  overflow-y: auto;    /* ✅ 내부 스크롤 */
+  max-height: 200px;   /* ✅ 고정 크기 */
 }
-
 
 #chat-box .ai {
   color: var(--green);
