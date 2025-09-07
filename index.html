@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>김건희 AI 챗 · v0.0.9</title>
+  <title>김건희 AI 챗 · v0.0.10</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400..900&display=swap" rel="stylesheet">
@@ -106,6 +106,14 @@
     @media (prefers-reduced-motion: reduce) {
       * { animation: none !important; transition: none !important; }
     }
+      /* 입력 영역 */
+    #input-controls { display:flex; gap:10px; width:100%; max-width:720px; padding:0 16px; box-sizing:border-box; }
+    #user-input {
+      flex:1; padding:10px 12px; border-radius:10px; border:1px solid color-mix(in srgb, var(--accent) 25%, transparent);
+      background: rgba(255,255,255,0.08); color:#e0e0e0; font-family: inherit; font-size:16px;
+    }
+    #send-button { background: var(--accent); color:#000; border:none; padding:10px 16px; border-radius:10px; font-size:16px; cursor:pointer; box-shadow:0 0 6px color-mix(in srgb, var(--accent) 40%, transparent); }
+    #send-button:hover { transform: translateY(-1px); }
   </style>
 </head>
 <body>
@@ -123,6 +131,10 @@
     <div id="nav-controls">
       <button id="prev-button" type="button" aria-label="이전 대사(←)">⬅️</button>
       <button id="next-button" type="button" aria-label="다음 대사(→)">➡️</button>
+    </div>
+      <div id="input-controls">
+      <input id="user-input" type="text" placeholder="메시지를 입력하고 Enter 또는 보내기…" aria-label="메시지 입력" />
+      <button id="send-button" type="button" aria-label="보내기">보내기</button>
     </div>
   </main>
 
@@ -268,6 +280,29 @@
         stopTyping();
       }
     });
+
+    // ---------------------- 입력 처리 ----------------------
+    const inputEl = document.getElementById('user-input');
+    const sendBtn = document.getElementById('send-button');
+
+    function sendMessage() {
+      const text = (inputEl.value || '').trim();
+      if (!text) return;
+      // 사용자가 입력한 문장을 히스토리에 추가하고 최신으로 이동
+      chatHistory.push(text);
+      currentIndex = chatHistory.length - 1;
+      inputEl.value = '';
+      updateDisplay();
+    }
+
+    // 엔터로 전송 (Shift+Enter는 줄바꿈)
+    inputEl.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendMessage();
+      }
+    });
+    sendBtn.addEventListener('click', sendMessage);
 
     // 초기 렌더
     updateDisplay();
