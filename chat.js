@@ -78,7 +78,6 @@ function splitAndTypeWriter(element, text, maxLength = 160, delay = 16) {
   })();
 }
 
-
 // === 히스토리 ===
 function pushHistory(role, content) {
   conversationHistory.push({ role, content });
@@ -106,10 +105,9 @@ function renderMessage(role, text) {
   chatBox.scrollTop = chatBox.scrollHeight;
 }
 
-// === 실제 OpenAI 호출 (프론트) ===
-// ⚠️ 여기에 "너가 이전에 쓰던 base64 키"를 넣어.
-// 예) const OPENAI_KEY_B64 = 'c2stcHJvai1...';  (절대 깃에 올리지 마)
-const OPENAI_KEY_B64 = 'c2stcHJvai1IY0NheVlmLVVSd25zbmpucnB6TWRuNnNJeDV0VHc0Rzc3MmFxNGZGUU56c1JsRDRHcmR1Z2NlUmhIQkRwckpSbnQxSC1ZN2FydlQzQmxia0ZKRFVIWkExMm5mSXBoSFh4cXowSHBzQU12cU9ucXZlSkxkbUxMZjBWUUtRZTNnOEJtS2J2UXNFRWtlYnF5ZWpFcGppOFAzUGIxOEE='; // <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<< 여기에 네 base64 키 붙여넣기
+// === OpenAI API ===
+// ⚠️ base64 인코딩된 API Key를 넣으세요 (브라우저에서 노출됨)
+const OPENAI_KEY_B64 = '여기에_네_base64_API_KEY';  
 function getOpenAIKey() {
   if (!OPENAI_KEY_B64) throw new Error('API 키(base64)를 chat.js에 설정해줘.');
   try { return atob(OPENAI_KEY_B64); } catch { throw new Error('API 키 디코딩 실패'); }
@@ -129,16 +127,17 @@ const SYSTEM_PROMPT = `너는 김건희라고 불리며, 2132년의 세계에 �
 손자: 김관형.
 손녀: 김리안, 곽시아.`;
 
-// OpenAI Chat Completions 호출
+// === OpenAI Chat Completions 호출 ===
 async function sendMessage(userMessage) {
   const OPENAI_API_KEY = getOpenAIKey();
 
-  // 이름 1회 세팅(이전 코드 호환)
+  // 이름 세팅 (최초 1회)
   if (!isUserNameSet) {
     if (userMessage === '싫어' || userMessage === '안알려줄래') {
       userName = '이름을 원치 않는 사람';
     } else {
-      userName = userMessage.replace(/[^\p{L}\p{N}\s]/gu, '').trim().split(/\s+/)[0] || '낯선이';
+      userName = userMessage.replace(/[^\p{L}\p{N}\s]/gu, '')
+                            .trim().split(/\s+/)[0] || '낯선이';
     }
     isUserNameSet = true;
   }
@@ -146,7 +145,7 @@ async function sendMessage(userMessage) {
   const system = SYSTEM_PROMPT.replace('${NAME}', userName || '낯선이');
 
   const payload = {
-    model: 'gpt-4o', // 예전과 동일하게 gpt-4 사용(원하면 gpt-4o-mini 등으로 교체)
+    model: 'gpt-4o',
     messages: [
       { role: 'system', content: system },
       ...conversationHistory,
@@ -166,7 +165,7 @@ async function sendMessage(userMessage) {
     });
 
     const data = await res.json();
-    if (!res.ok) throw new Error(data?.error?.message || 'OpenAI 에러');
+    if (!res.ok) throw new Error(data?.error?.message || 'OpenAI API 에러');
 
     return data.choices?.[0]?.message?.content ?? '';
   } catch (error) {
@@ -186,7 +185,7 @@ sendButton.addEventListener('click', async () => {
   renderMessage('user', message);
   userInput.value = '';
 
-  // 로딩
+  // 로딩 표시
   const loading = document.createElement('div');
   loading.className = 'loading';
   loading.innerHTML = '<span class="dot"></span><span class="dot"></span><span class="dot"></span>';
