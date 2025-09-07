@@ -68,13 +68,16 @@ function splitAndTypeWriter(element, text, maxLength = 160, delay = 16) {
 
   (async () => {
     for (const p of parts) {
+      const line = document.createElement('div');   // ✅ 줄 단위 DIV 생성
+      element.appendChild(line);
       await new Promise(resolve => {
-        typeWriter(element, p, delay);
+        typeWriter(line, p, delay);
         setTimeout(resolve, p.length * delay + 20);
       });
     }
   })();
 }
+
 
 // === 히스토리 ===
 function pushHistory(role, content) {
