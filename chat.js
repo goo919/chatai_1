@@ -143,7 +143,7 @@ async function sendMessage(userMessage) {
   const system = SYSTEM_PROMPT.replace('${NAME}', userName || '낯선이');
 
   const payload = {
-    model: 'gpt-4', // 예전과 동일하게 gpt-4 사용(원하면 gpt-4o-mini 등으로 교체)
+    model: 'gpt-4o', // 예전과 동일하게 gpt-4 사용(원하면 gpt-4o-mini 등으로 교체)
     messages: [
       { role: 'system', content: system },
       ...conversationHistory,
