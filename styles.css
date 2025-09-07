@@ -1,259 +1,386 @@
-html, body {
-    height: 100%;
-    margin: 0;
-    overflow: hidden; /* 화면 전체 스크롤 방지 */
-    font-family: 'Courier New', Courier, monospace; /* 궁서체가 웹에서 기본적으로 지원되지 않으므로 대체 폰트 사용 */
-    background-color: #2b0000; /* 더 어두운 빨강 배경 */
-    color: #ffffff; /* 흰색 글씨 */
+[index.html]
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Chat — UNDERTALE style</title>
+  <!-- Pixel font -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div id="crt-overlay"></div>
+  <div id="game-frame">
+    <header id="hud">
+      <div class="hud-left">KIM GEO-NHEE ★ LV 1</div>
+      <div class="hud-center">2132</div>
+      <div class="hud-right">
+        <button id="toggle-speech-button" class="btn-icon" aria-label="toggle beep">♥</button>
+        <button id="show-name-button" class="btn">GUESTBOOK</button>
+      </div>
+    </header>
+
+    <main id="scene">
+      <div id="portrait-wrap">
+        <img id="portrait" src="img/kim.png" alt="김건희" />
+      </div>
+
+      <div id="chat-container" class="box">
+        <div id="chat-box"></div>
+      </div>
+
+      <div id="menu">
+        <button id="prev-msg" class="btn menu-btn" title="prev">◀</button>
+        <div id="input-container" class="box box-input">
+          <div class="heart" aria-hidden="true"></div>
+          <input id="user-input" type="text" placeholder="고인에게 말을 걸어주세요" autocomplete="off" />
+          <button id="send-button" class="btn">SEND</button>
+        </div>
+        <button id="next-msg" class="btn menu-btn" title="next">▶</button>
+      </div>
+    </main>
+
+    <footer id="version-info">VER 0.1.0 — UNDERTALE SKIN</footer>
+  </div>
+
+  <audio id="beep-sound" src="audio/beep.mp3"></audio>
+
+  <!-- Guestbook Modal -->
+  <div id="guestbook-modal" class="modal">
+    <div class="modal-content box">
+      <h2>방명록 작성</h2>
+      <input type="text" id="guestbook-name" placeholder="이름을 입력하세요" />
+      <button id="submit-guestbook" class="btn">제출</button>
+    </div>
+  </div>
+
+  <!-- Names Modal -->
+  <div id="name-modal" class="modal">
+    <div class="modal-content box">
+      <div id="stored-names-title">방명록</div>
+      <div id="stored-names"></div>
+      <button id="close-name-modal" class="btn">닫기</button>
+    </div>
+  </div>
+
+  <script src="chat.js"></script>
+</body>
+</html>
+
+
+[styles.css]
+:root{
+  --black:#000;--white:#fff;--accent:#ffb000;--border:#fff;--green:#00ff00;--heart:#ff4040;
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0;background:var(--black);color:var(--white);font-family:'Press Start 2P', monospace;}
+/* CRT overlay */
+#crt-overlay{pointer-events:none;position:fixed;inset:0;background:repeating-linear-gradient(0deg,rgba(255,255,255,.03),rgba(255,255,255,.03) 1px,transparent 2px,transparent 3px);mix-blend-mode:overlay;opacity:.25;}
+#game-frame{max-width:720px;margin:0 auto;min-height:100dvh;padding:12px;display:flex;flex-direction:column;gap:12px}
+
+/* HUD */
+#hud{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.hud-left,.hud-center,.hud-right{font-size:10px}
+.btn,.btn-icon{background:transparent;color:var(--white);border:2px solid var(--border);padding:8px 12px;cursor:pointer}
+.btn:hover,.btn-icon:hover{transform:translateY(-2px)}
+.btn-icon{width:42px;height:42px;display:grid;place-items:center;font-size:18px;border-radius:4px}
+
+/* Portrait */
+#scene{display:grid;grid-template-rows:auto 1fr auto;gap:12px}
+#portrait-wrap{display:grid;place-items:center;height:min(30vh,240px)}
+#portrait{height:100%;image-rendering:pixelated;filter:grayscale(1) contrast(1.1);}
+
+/* Boxes */
+.box{border:3px solid var(--border);padding:12px;border-radius:4px;position:relative}
+.box:before,.box:after{content:"";position:absolute;border:3px solid var(--border);inset:6px;opacity:.15}
+.box-input{display:flex;align-items:center;gap:8px}
+#chat-container{height:40vh;overflow:auto}
+#chat-box{display:flex;flex-direction:column;gap:10px;word-break:keep-all}
+#chat-box .user{text-align:right;color:#ff7575}
+#chat-box .ai{display:flex;gap:8px;align-items:flex-start;color:var(--green)}
+#chat-box .ai .speaker{min-width:10ch}
+
+/* Input */
+#input-container{width:100%}
+#user-input{flex:1;min-width:0;border:2px solid var(--border);background:var(--black);color:var(--white);padding:10px;font-size:12px}
+#send-button{margin-left:6px}
+.heart{width:12px;height:12px;background:var(--heart);box-shadow:0 0 8px var(--heart);clip-path:path("M12 4 C12 1 9 0 6 2 C3 0 0 1 0 4 C0 7 6 11 6 11 C6 11 12 7 12 4 Z");}
+
+/* Menu */
+#menu{display:grid;grid-template-columns:42px 1fr 42px;gap:8px;align-items:center}
+.menu-btn{height:42px}
+
+/* Version */
+#version-info{opacity:.6;text-align:center;font-size:10px}
+
+/* Loading dots */
+.loading{display:flex;gap:6px;justify-content:center}
+.loading .dot{width:6px;height:6px;background:var(--white);animation:blink 1s infinite alternate}
+.loading .dot:nth-child(2){animation-delay:.2s}
+.loading .dot:nth-child(3){animation-delay:.4s}
+@keyframes blink{to{opacity:.2;transform:translateY(-2px)}}
+
+/* Modals */
+.modal{position:fixed;inset:0;display:none;place-items:center;background:rgba(0,0,0,.8);z-index:20}
+.modal .modal-content{width:min(520px,90vw)}
+#stored-names{display:flex;gap:6px;overflow:auto;max-height:40vh}
+.stored-name{writing-mode:vertical-rl;text-orientation:upright;border:1px solid var(--border);padding:6px}
+
+/* Highlight pulse (typewriter tick) */
+#chat-container.highlight{box-shadow:0 0 24px rgba(255,255,255,.08) inset}
+
+/* Scrollbars */
+#chat-container::-webkit-scrollbar{width:8px} 
+#chat-container::-webkit-scrollbar-thumb{background:#666}
+
+/* Small screens */
+@media (max-width:420px){
+  #portrait-wrap{height:28vh}
+  #chat-container{height:42vh}
+  .btn,.btn-icon{padding:6px}
 }
 
-#version-info {
-    position: absolute;
-    top: 10px;
-    left: 10px;
-    background: rgba(0, 0, 0, 0.5);
-    padding: 5px 10px;
-    border-radius: 5px;
-    font-size: 12px;
-    color: #ffffff;
-    z-index: 1000;
+
+[chat.js]
+// === DOM ===
+const chatBox = document.getElementById('chat-box');
+const chatContainer = document.getElementById('chat-container');
+const userInput = document.getElementById('user-input');
+const sendButton = document.getElementById('send-button');
+const toggleSpeechButton = document.getElementById('toggle-speech-button');
+const guestbookModal = document.getElementById('guestbook-modal');
+const guestbookNameInput = document.getElementById('guestbook-name');
+const submitGuestbookButton = document.getElementById('submit-guestbook');
+const nameModal = document.getElementById('name-modal');
+const storedNamesContainer = document.getElementById('stored-names');
+const closeNameModalButton = document.getElementById('close-name-modal');
+const showNameButton = document.getElementById('show-name-button');
+const beepSound = document.getElementById('beep-sound');
+const prevMsgBtn = document.getElementById('prev-msg');
+const nextMsgBtn = document.getElementById('next-msg');
+
+let userName = '';
+let isUserNameSet = false;
+let isSpeechEnabled = true;
+let conversationHistory = [];
+let historyCursor = null; // for ◀ ▶ navigation
+
+// === Audio (single context) ===
+let audioCtx;
+function ensureAudioCtx(){
+  if(!audioCtx){
+    const C = window.AudioContext || window.webkitAudioContext; audioCtx = new C();
+  }
+  return audioCtx;
+}
+function playBeep(freq=440){
+  if(!isSpeechEnabled) return;
+  const ctx = ensureAudioCtx();
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.connect(gain); gain.connect(ctx.destination);
+  osc.frequency.setValueAtTime(freq, ctx.currentTime);
+  gain.gain.setValueAtTime(0.0001, ctx.currentTime);
+  gain.gain.exponentialRampToValueAtTime(0.2, ctx.currentTime + 0.02);
+  gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.1);
+  osc.start(); osc.stop(ctx.currentTime + 0.12);
 }
 
-#chat-container {
-    width: 100%;
-    max-width: 600px;
-    height: 100%; /* 화면 전체를 차지하도록 설정 */
-    background: #0b001f; /* 더 어두운 배경 */
-    box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
-    border-radius: 5px;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden; /* 내부 스크롤로 제한 */
-    border: 2px solid transparent; /* 초기 테두리 색상 */
-    transition: background 0.3s ease-in-out; /* 배경 전환 효과 추가 */
-}
-
-#chat-container.highlight {
-    background: linear-gradient(to top, rgba(1, 255, 112, 0.3), transparent), url('https://upload.wikimedia.org/wikipedia/commons/c/c1/Matrix_code.svg');
-    background-size: 1000%; /* 모자이크 크기 확대 */
-    background-repeat: repeat;
-}
-
-#chat-box {
-    flex: 1;
-    overflow-y: auto;
-    padding: 20px;
-    box-sizing: border-box; /* 패딩 포함 */
-    margin-bottom: 60px; /* 입력창 높이만큼 마진 추가 */
-}
-
-#chat-box p {
-    margin: 10px 0;
-    transition: border-color 0.1s ease; /* 테두리 색 전환 효과 추가 */
-}
-
-#chat-box .user {
-    text-align: right;
-    color: #c70039; /* 강렬한 빨간색 */
-}
-
-#chat-box .ai {
-    text-align: left;
-    color: #01ff70; /* 섬뜩한 초록색 */
-    display: flex;
-    align-items: center;
-}
-
-#chat-box .ai img {
-    margin-right: 10px; /* 이미지와 텍스트 사이의 간격 설정 */
-    width: 30px; /* 이미지 너비 설정 */
-    height: 30px; /* 이미지 높이 설정 */
-    border-radius: 50%; /* 원형 이미지 */
-}
-
-#input-container {
-    display: flex;
-    align-items: center;
-    padding: 10px;
-    background: #5e002a; /* 어두운 빨간색 배경 */
-    position: fixed; /* 고정 위치 */
-    bottom: 0;
-    width: 100%;
-    max-width: 600px;
-    box-sizing: border-box;
-    z-index: 1000;
-}
-
-#user-input {
-    flex: 1;
-    padding: 10px;
-    border: 2px solid #5e002a; /* 어두운 빨간색 경계선 */
-    border-radius: 20px; /* 둥근 모서리 */
-    background: #1b001f; /* 어두운 배경 */
-    color: #ffffff; /* 흰색 글씨 */
-    font-size: 16px; /* Prevent zooming on mobile */
-    margin-right: 10px; /* 버튼과 간격 */
-}
-
-#send-button {
-    padding: 10px;
-    background: #01ff70; /* 섬뜩한 초록색 버튼 */
-    color: #1b001f; /* 어두운 배경 */
-    border: none;
-    border-radius: 20px; /* 둥근 모서리 */
-    cursor: pointer;
-    font-size: 16px; /* Maintain button font size consistency */
-}
-
-#send-button:hover {
-    background: #00e360; /* 버튼에 약간의 밝기 변화 */
-}
-
-#toggle-speech-button {
-    position: fixed;
-    top: 10px;
-    right: 10px;
-    background: #01ff70; /* 섬뜩한 초록색 버튼 */
-    color: #1b001f; /* 어두운 배경 */
-    border: none;
-    border-radius: 20px; /* 둥근 모서리 */
-    cursor: pointer;
-    padding: 10px;
-    font-size: 16px;
-}
-
-#toggle-speech-button.active {
-    background: #00e360; /* 활성화 시 버튼에 약간의 밝기 변화 */
-}
-
-/* 로딩 표시 */
-.loading {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.loading .dot {
-    width: 8px;
-    height: 8px;
-    margin: 0 2px;
-    background-color: #01ff70; /* 초록색 점 */
-    border-radius: 50%;
-    animation: blink 1s infinite ease-in-out alternate;
-}
-
-.loading .dot:nth-child(2) {
-    animation-delay: 0.2s;
-}
-
-.loading .dot:nth-child(3) {
-    animation-delay: 0.4s;
-}
-
-@keyframes blink {
-    to {
-        opacity: 0.1;
-        transform: translateY(-2px);
+// === Safe typewriter ===
+function typeWriter(element, text, delay=18){
+  element.textContent = '';
+  let i = 0;
+  (function tick(){
+    if(i < text.length){
+      element.textContent += text.charAt(i);
+      playBeep(220 + (text.charCodeAt(i)%220));
+      chatContainer.classList.add('highlight');
+      setTimeout(()=> chatContainer.classList.remove('highlight'), delay);
+      i++; setTimeout(tick, delay);
     }
+  })();
 }
 
-/* 모달 스타일 */
-.modal {
-    display: none; /* 숨김 상태 */
-    position: fixed;
-    z-index: 1001;
-    left: 0;
-    top: 0;
-    width: 100%;
-    height: 100%;
-    overflow: auto;
-    background-color: rgba(0, 0, 0, 0.8);
+function splitAndTypeWriter(element, text, maxLength=160, delay=18){
+  const words = text.split(' ');
+  const parts = []; let part = '';
+  for(const w of words){
+    if((part + (part?' ':'') + w).length > maxLength){ parts.push(part); part = w; }
+    else{ part += (part?' ':'') + w; }
+  }
+  if(part) parts.push(part);
+
+  (async ()=>{
+    for(const p of parts){
+      await new Promise(resolve=>{ typeWriter(element, p, delay); setTimeout(resolve, p.length*delay + 30); });
+    }
+  })();
 }
 
-.modal-content {
-    background-color: #1b001f;
-    margin: 15% auto;
-    padding: 20px;
-    border: 1px solid #888;
-    width: 80%;
-    max-width: 300px;
-    text-align: center;
-    border-radius: 10px;
-    font-family: 'Courier New', Courier, monospace; /* 궁서체가 웹에서 기본적으로 지원되지 않으므로 대체 폰트 사용 */
-    color: #ffffff;
+// === Messaging (keep your existing backend; UI only) ===
+async function sendMessage(userMessage){
+  // NOTE: Replace with your server proxy later. For now, keep as-is or stub.
+  // This stub echoes back for UI preview if no backend exists.
+  try{
+    // If you have the real implementation, call it here and return content.
+    // return await realSend(userMessage);
+    return `...${userMessage}에 대한 대답이야.`;
+  }catch(e){
+    throw new Error('나는 너무 피곤해.. zzzz');
+  }
 }
 
-.modal-content h2 {
-    margin: 0 0 20px 0;
-    color: #01ff70;
+// === History helpers ===
+function pushHistory(role, content){
+  conversationHistory.push({ role, content });
+  const MAX = 20; // last 10 turns
+  if(conversationHistory.length > MAX){
+    conversationHistory = conversationHistory.slice(-MAX);
+  }
+  historyCursor = conversationHistory.length - 1;
 }
 
-#guestbook-name {
-    width: 80%; /* 좌우로 작게 조정 */
-    padding: 10px;
-    margin-bottom: 20px;
-    border: 1px solid #5e002a;
-    border-radius: 5px;
-    background: #0b001f;
-    color: #ffffff;
-    font-family: 'Courier New', Courier, monospace; /* 궁서체가 웹에서 기본적으로 지원되지 않으므로 대체 폰트 사용 */
+function renderMessage(role, text){
+  const p = document.createElement('p');
+  p.className = role;
+  if(role === 'ai'){
+    const who = document.createElement('span');
+    who.className = 'speaker';
+    who.textContent = '김건희:';
+    const span = document.createElement('span');
+    p.appendChild(who); p.appendChild(span);
+    splitAndTypeWriter(span, text, 160, 18);
+  } else {
+    p.textContent = `YOU: ${text}`;
+  }
+  chatBox.appendChild(p);
+  chatBox.scrollTop = chatBox.scrollHeight;
 }
 
-#stored-names-title {
-    font-size: 24px;
-    font-weight: bold;
-    margin-bottom: 10px;
-    color: #01ff70; /* 섬뜩한 초록색 */
+// === UI events ===
+
+toggleSpeechButton.addEventListener('click', ()=>{
+  isSpeechEnabled = !isSpeechEnabled;
+  toggleSpeechButton.classList.toggle('active', isSpeechEnabled);
+  toggleSpeechButton.textContent = isSpeechEnabled ? '♥' : '□';
+});
+
+sendButton.addEventListener('click', async ()=>{
+  const message = userInput.value.trim();
+  if(!message) return;
+
+  // set name once
+  if(!isUserNameSet){
+    if(message === '싫어' || message === '안알려줄래') userName = '이름을 원치 않는 사람';
+    else userName = message.replace(/[^\p{L}\p{N}\s]/gu,'').trim().split(/\s+/)[0];
+    isUserNameSet = true; saveName(userName);
+  }
+
+  const userNode = document.createElement('p');
+  userNode.className = 'user';
+  userNode.textContent = `YOU: ${message}`;
+  chatBox.appendChild(userNode);
+  chatBox.scrollTop = chatBox.scrollHeight;
+  userInput.value='';
+
+  const loading = document.createElement('div');
+  loading.className='loading';
+  loading.innerHTML = '<span class="dot"></span><span class="dot"></span><span class="dot"></span>';
+  chatBox.appendChild(loading);
+  chatBox.scrollTop = chatBox.scrollHeight;
+
+  try{
+    const aiResponse = await sendMessage(message);
+    pushHistory('user', message);
+    pushHistory('assistant', aiResponse);
+    loading.remove();
+    renderMessage('ai', aiResponse);
+  }catch(err){
+    loading.remove();
+    renderMessage('ai', err.message || '오류가 발생했어.');
+  }
+});
+
+// Message navigation (◀ ▶ shows previous assistant lines)
+function stepHistory(dir){
+  if(historyCursor == null) return;
+  let i = historyCursor + dir;
+  while(i>=0 && i<conversationHistory.length){
+    if(conversationHistory[i].role === 'assistant'){
+      historyCursor = i;
+      const msg = conversationHistory[i].content;
+      const p = document.createElement('p');
+      p.className='ai';
+      const who = document.createElement('span'); who.className='speaker'; who.textContent='김건희:';
+      const span=document.createElement('span'); p.appendChild(who); p.appendChild(span);
+      chatBox.appendChild(p);
+      splitAndTypeWriter(span,msg,160,10);
+      chatBox.scrollTop = chatBox.scrollHeight;
+      return;
+    }
+    i += dir;
+  }
+}
+prevMsgBtn.addEventListener('click', ()=> stepHistory(-1));
+nextMsgBtn.addEventListener('click', ()=> stepHistory(1));
+
+// DOM ready
+window.addEventListener('DOMContentLoaded', ()=>{
+  const greeting = [
+    '누군가 왔구나..? 기다리느라 지쳤어...',
+    '오랜만이야... 너를 기다리고 있었어...',
+    '드디어 너구나... 기다리던 시간이 길었어...',
+  ][Math.floor(Math.random()*3)];
+
+  const p = document.createElement('p');
+  p.className='ai';
+  const who = document.createElement('span'); who.className='speaker'; who.textContent='김건희:';
+  const span = document.createElement('span'); p.appendChild(who); p.appendChild(span);
+  chatBox.appendChild(p);
+  splitAndTypeWriter(span, greeting, 160, 18);
+
+  userInput.addEventListener('keydown', (e)=>{ if(e.key==='Enter') sendButton.click(); });
+
+  // Stored name
+  const storedName = localStorage.getItem('guestbookName');
+  if(storedName){ userName = storedName; isUserNameSet = true; saveName(userName); }
+  else guestbookModal.style.display = 'grid';
+});
+
+// Guestbook
+submitGuestbookButton?.addEventListener('click', ()=>{
+  const name = guestbookNameInput.value.trim();
+  if(!name) return;
+  userName = name; isUserNameSet = true; localStorage.setItem('guestbookName', name);
+  guestbookModal.style.display='none'; saveName(userName);
+});
+
+showNameButton?.addEventListener('click', ()=>{ displayStoredNames(); nameModal.style.display='grid'; });
+closeNameModalButton?.addEventListener('click', ()=> nameModal.style.display='none');
+
+function saveName(name){
+  const names = JSON.parse(localStorage.getItem('guestbookNames')||'[]');
+  if(!names.includes(name)) names.push(name);
+  localStorage.setItem('guestbookNames', JSON.stringify(names));
 }
 
-#stored-names {
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    max-height: 300px;
-    overflow-x: auto; /* 가로 스크롤 가능 */
-    font-family: 'Courier New', Courier, monospace; /* 궁서체가 웹에서 기본적으로 지원되지 않으므로 대체 폰트 사용 */
-    color: #ffffff; /* 흰색 글씨 */
+function generateRandomName(){
+  const names = ["남지수","소중한","이영희","박민수","최지현","조민재","한성민","정다은","오지훈","유승현","임지호","장수현","백지훈","윤소희","강하늘","신동엽","안소연","정우진","하은비","황현수","이채영","송유진","고아라","문승현","서지수","정민수","류지연","조현우","김예지","박수진","이정훈","전지현","조수아","김도현","한지민","이민호","송지은","이재영","홍수아","유지연"]; 
+  return names[Math.floor(Math.random()*names.length)];
 }
 
-.stored-name {
-    writing-mode: vertical-rl;
-    text-orientation: upright;
-    border: 1px solid #5e002a;
-    border-radius: 5px;
-    padding: 5px;
-    margin: 5px;
-    background: #0b001f;
-}
-
-#submit-guestbook, #close-name-modal {
-    padding: 10px 20px;
-    background-color: #01ff70;
-    color: #1b001f;
-    border: none;
-    border-radius: 5px;
-    cursor: pointer;
-    font-family: 'Courier New', Courier, monospace; /* 궁서체가 웹에서 기본적으로 지원되지 않으므로 대체 폰트 사용 */
-}
-
-#submit-guestbook:hover, #close-name-modal:hover {
-    background-color: #00e360;
-}
-
-/* 이름 확인 버튼 스타일 */
-#show-name-button {
-    position: fixed;
-    bottom: 70px;
-    right: 10px;
-    padding: 10px 20px;
-    background-color: #01ff70;
-    color: #1b001f;
-    border: none;
-    border-radius: 5px;
-    cursor: pointer;
-    font-family: 'Courier New', Courier, monospace; /* 궁서체가 웹에서 기본적으로 지원되지 않으므로 대체 폰트 사용 */
-}
-
-#show-name-button:hover {
-    background-color: #00e360;
+function displayStoredNames(){
+  const names = JSON.parse(localStorage.getItem('guestbookNames')||'[]');
+  storedNamesContainer.innerHTML = '';
+  const combined = [...names];
+  while(combined.length<40){
+    const r = generateRandomName(); if(!combined.includes(r)) combined.push(r);
+  }
+  combined.sort(()=>Math.random()-0.5);
+  combined.forEach(n=>{
+    const el=document.createElement('div'); el.className='stored-name'; el.textContent=n; storedNamesContainer.appendChild(el);
+  });
 }
