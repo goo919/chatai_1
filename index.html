@@ -1,27 +1,36 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>AI Chat — Minimal UNDERTALE</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css" />
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Chat — Minimal UNDERTALE</title>
+
+  <!-- Pixel-ish font -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet" />
+
+  <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-<div id="app">
-<main id="stage">
-<img id="portrait" src="img/kim.png" alt="김건희" width="200" height="200" />
-<section id="ai-box" class="box" aria-live="polite">
-<div id="chat-box"></div>
-</section>
-<section id="user-box" class="box box-input">
-<input id="user-input" type="text" placeholder="고인에게 말을 걸어주세요" autocomplete="off" />
-<button id="send-button" class="btn">SEND</button>
-</section>
-</main>
-</div>
-<script src="chat.js"></script>
+  <div id="app">
+    <main id="stage">
+      <!-- 200 × 200 중앙 얼굴 -->
+      <img id="portrait" src="img/kim.png" alt="김건희" width="200" height="200" />
+
+      <!-- AI 대사 박스 (흰 선, 검정 채움) -->
+      <section id="ai-box" class="box" aria-live="polite">
+        <div id="chat-box"></div>
+      </section>
+
+      <!-- 입력 박스 (흰 선, 검정 채움) -->
+      <section id="user-box" class="box box-input">
+        <input id="user-input" type="text" placeholder="고인에게 말을 걸어주세요" autocomplete="off" />
+        <button id="send-button" class="btn">SEND</button>
+      </section>
+    </main>
+  </div>
+
+  <script src="chat.js"></script>
 </body>
 </html>
