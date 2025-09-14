@@ -181,11 +181,17 @@ img#portrait {
 /* ASCII 텍스트가 줄바꿈/공백 그대로 보이게 + 스크롤 없이 전체 보이게 */
 pre#portrait {
   white-space: pre;      /* 공백/줄바꿈 유지 */
-  overflow: auto;        /* 가로가 길면 스크롤로 확인 (세로도 스크롤 허용) */
-  max-height: none;      /* 잘림 방지 — 전체가 보이도록 제한 해제 */
+  overflow: auto;        /* 필요시 스크롤 */
+  max-height: none;      /* 잘림 방지 */
 
   font-family: 'DungGeunMo', monospace;
-  font-size: 5px;       /* 크기 조절 포인트 (8~12px에서 맞춰봐) */
+  font-size: 5px;        /* ASCII 크기 */
   line-height: 1.05;
+
+  /* ✅ 중앙 정렬 핵심 */
+  display: inline-block; /* 내용 크기에 맞춤 */
+  margin: 0 auto;        /* 가로 중앙 정렬 */
+  width: auto;           /* 화면 100% 차지하지 않게 */
+  text-align: left;      /* 아트 내부 텍스트는 왼쪽 정렬 유지 */
 }
 
