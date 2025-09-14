@@ -39,8 +39,8 @@ html, body {
 /* 200×200 중앙 얼굴 */
 #portrait {
   display: block;
-  width: 200px;
-  height: 200px;
+  width: 300px;
+  height: 300px;
   image-rendering: pixelated;
   filter: grayscale(1) contrast(1.05);
 }
