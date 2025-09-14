@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title> RIP KIM </title>
+  <title>AI Chat — Minimal UNDERTALE</title>
 
   <!-- Pixel-ish font -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -15,16 +15,15 @@
 <body>
   <div id="app">
     <main id="stage">
-      <!-- 200 × 200 중앙 얼굴 -->
-      <!-- 기존: <img id="portrait" src="img/kim.png" alt="김건희" width="200" height="200" /> -->
-<pre id="portrait"></pre>
+      <!-- 중앙 초상: ASCII 전용 -->
+      <pre id="portrait"></pre>
 
-      <!-- AI 대사 박스 (흰 선, 검정 채움) -->
+      <!-- AI 대사 박스 -->
       <section id="ai-box" class="box" aria-live="polite">
         <div id="chat-box"></div>
       </section>
 
-      <!-- 입력 박스 (흰 선, 검정 채움) -->
+      <!-- 입력 박스 -->
       <section id="user-box" class="box box-input">
         <input id="user-input" type="text" placeholder="고인에게 말을 걸어주세요" autocomplete="off" />
         <button id="send-button" class="btn">SEND</button>
