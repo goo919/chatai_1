@@ -40,21 +40,25 @@ function playBeep(freq = 440) {
   osc.stop(ctx.currentTime + 0.12);
 }
 
-// === 안전한 타이핑 효과 ===
-function typeWriter(element, text, delay = 16) {
+// === 안전한 타이핑 효과 (비프 동기 콜백 지원) ===
+function typeWriter(element, text, delay = 16, onChar = null, onDone = null) {
   element.textContent = '';
   let i = 0;
   (function tick() {
     if (i < text.length) {
-      element.textContent += text.charAt(i);
-      playBeep(220 + (text.charCodeAt(i) % 220));
+      const ch = text.charAt(i);
+      element.textContent += ch;
+      playBeep(220 + (ch.charCodeAt(0) % 220));
+      if (typeof onChar === 'function') onChar(ch);   // 🔁 비프와 동기화된 콜백
       i++;
       setTimeout(tick, delay);
+    } else {
+      if (typeof onDone === 'function') onDone();
     }
   })();
 }
 
-function splitAndTypeWriter(element, text, maxLength = 160, delay = 16) {
+function splitAndTypeWriter(element, text, maxLength = 160, delay = 16, onChar = null, onAllDone = null) {
   const words = text.split(' ');
   const parts = [];
   let part = '';
@@ -70,14 +74,21 @@ function splitAndTypeWriter(element, text, maxLength = 160, delay = 16) {
   if (part) parts.push(part);
 
   (async () => {
-    for (const p of parts) {
+    for (let idx = 0; idx < parts.length; idx++) {
+      const p = parts[idx];
       const line = document.createElement('div');   // ✅ 줄 단위 DIV 생성
       element.appendChild(line);
       await new Promise(resolve => {
-        typeWriter(line, p, delay);
-        setTimeout(resolve, p.length * delay + 20);
+        typeWriter(
+          line,
+          p,
+          delay,
+          onChar,                      // 🔁 각 글자 콜백 전달
+          () => setTimeout(resolve, 20) // 줄 사이 약간의 버퍼
+        );
       });
     }
+    if (typeof onAllDone === 'function') onAllDone();
   })();
 }
 
@@ -90,7 +101,7 @@ function pushHistory(role, content) {
   }
 }
 
-// === ★ 추가: ASCII 프레임 & 말하기 애니메이션 ===
+// === ★ ASCII 프레임 & 비프 동기화 입 모양 토글 ===
 // 필요한 경우 FRAME_IDLE을 네 "워드이미지" ASCII로 교체해도 됨.
 const FRAME_TALK_1 = String.raw`                            
                             ▓▒░ ░▓▓▓████▓▓▓▓▓░░                                 
@@ -181,63 +192,43 @@ const FRAME_TALK_2 = String.raw`
 ██▓▓▓▓▓▓▓▓▓▓▓▓▓▓██████████▓██▓██████████████████▓▓█▓▓█████████▓▓▓▓▓▓▓▓▓▓▓▓▓██▓██
 ███▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓█████▓▓▓███████████████████▓▓█▓▓▓▓▓█████▓▓▓▓▓▓▓▓▓▓▓▓▓▓██████
 ████▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓███▓▓▓▓▓▓▓▓████████████████▓█▓▓▓▓▓▓▓▓▓███▓▓▓▓▓▓▓▓▓▓▓▓███████
-████▓▓▓▓▓▓▓▓▓▓▓▓▓▓██▓▓▓▓▓▓▓▓▓▓▓███████████████▓██▓▓▓▓▓▓▓▓▓███▓▓▓▓▓▓▓▓▓▓▓████████
-████▓▓▓▓▓▓▓▓▓▓▓▓▓▓███▓▓▓▓▓▓▓▓▓▓▓█████████████▓██▓▓▓▓▓▓▓▓▓███▓▓▓▓▓▓▓▓▓▓▓▓████████`;
+████▓▓▓▓▓▓▓▓▓▓▓▓▓▓██▓▓▓▓▓▓▓▓▓▓▓███████████████▓██▓▓▓▓▓▓▓▓▓███▓▓▓▓▓▓▓▓▓▓▓████████`;
 
 // Idle은 기본으로 TALK_1과 동일하게 시작. 필요 시 워드이미지로 교체.
 const FRAME_IDLE = FRAME_TALK_1;
 
-// 상태
-let talkTimer = null;
-let talkToggle = false;
-
-// 렌더링
+// === 렌더링 ===
 function showFrame(txt) {
   if (!portraitEl) return;
   portraitEl.textContent = txt;
 }
 
-// 애니메이션 시작/정지
-function startTalking(speedMs = 180) {
-  if (!portraitEl) return;
-  if (talkTimer) return;
-  talkToggle = false;
-  talkTimer = setInterval(() => {
-    talkToggle = !talkToggle;
-    showFrame(talkToggle ? FRAME_TALK_1 : FRAME_TALK_2);
-  }, speedMs);
-}
-function stopTalking() {
-  if (!portraitEl) return;
-  if (talkTimer) {
-    clearInterval(talkTimer);
-    talkTimer = null;
-  }
-  showFrame(FRAME_IDLE);
+// === 비프(글자 출력) 타이밍에 맞춘 입 모양 토글 ===
+let mouthCount = 0; // 비공백 글자 카운트
+
+function resetMouth() {
+  mouthCount = 0;
+  showFrame(FRAME_TALK_1); // 시작은 입 다문 상태
 }
 
-// 말하는 동안 자동으로 애니메이션 켰다가 끄는 헬퍼
+function onBeepCharToggle(ch) {
+  if (!/\S/.test(ch)) return; // 공백/줄바꿈 무시
+  mouthCount++;
+  // 홀수 → 입 벌림(2번), 짝수 → 입 다묾(1번)
+  showFrame(mouthCount % 2 ? FRAME_TALK_2 : FRAME_TALK_1);
+}
+
+// 말하는 동안: 비프에 동기화해 프레임 토글, 끝나면 Idle
 function speakWithAnimation(targetEl, text, maxLength = 160, delay = 16) {
-  // parts 계산( splitAndTypeWriter와 동일 로직 )으로 총 소요시간 예측
-  const words = text.split(' ');
-  const parts = [];
-  let part = '';
-  for (const w of words) {
-    if ((part + (part ? ' ' : '') + w).length > maxLength) {
-      parts.push(part);
-      part = w;
-    } else {
-      part += (part ? ' ' : '') + w;
-    }
-  }
-  if (part) parts.push(part);
-
-  const totalLen = parts.reduce((n, p) => n + p.length, 0);
-  const totalMs = totalLen * delay + parts.length * 20 + 80; // 약간의 버퍼
-
-  startTalking(160); // 말하기 시작
-  splitAndTypeWriter(targetEl, text, maxLength, delay);
-  setTimeout(stopTalking, totalMs); // 대사 출력 끝나면 정지
+  resetMouth();
+  splitAndTypeWriter(
+    targetEl,
+    text,
+    maxLength,
+    delay,
+    onBeepCharToggle,       // 🔁 글자마다 입 모양 토글
+    () => showFrame(FRAME_IDLE) // 모두 끝나면 Idle 복귀
+  );
 }
 
 // === 렌더 ===
@@ -249,7 +240,6 @@ function renderMessage(role, text) {
     const span = document.createElement('span');
     p.appendChild(span);
     chatBox.appendChild(p);
-    // ▼ 변경: 타이핑 시작/종료에 맞춰 초상 애니메이션
     speakWithAnimation(span, `김건희: ${text}`, 160, 16);
   } else {
     p.textContent = `YOU: ${text}`;
@@ -370,7 +360,7 @@ window.addEventListener('DOMContentLoaded', () => {
   p.appendChild(span);
   chatBox.appendChild(p);
 
-  // ▼ 변경: 인사 말 출력에도 말하기 애니메이션 적용
+  // 인사에 비프 동기화 입 모양 적용
   speakWithAnimation(span, `김건희: ${greet}`, 160, 16);
 
   userInput.addEventListener('keydown', (e) => {
