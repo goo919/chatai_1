@@ -1,10 +1,11 @@
+/* styles.css */
 @font-face {
   font-family: 'DungGeunMo';
   src: url('./fonts/DungGeunMo.woff2') format('woff2');
   font-weight: normal;
   font-style: normal;
 }
- 
+
 :root {
   --black: #000;
   --white: #fff;
@@ -36,8 +37,8 @@ html, body {
   width: min(720px, 92vw);
 }
 
-/* 200×200 중앙 얼굴 */
-#portrait {
+/* (이미지 전용) — 지금은 <pre>라 적용 안 됨, 나중에 이미지로 바꾸면 유효 */
+img#portrait {
   display: block;
   width: 250px;
   height: 250px;
@@ -137,61 +138,33 @@ html, body {
   #user-input, .btn { padding: 9px 12px; }
 }
 
-/* === ASCII 초상( <pre id="portrait"> ) 전용 추가 스타일 === */
-/* 기존 #portrait 규칙은 그대로 두고, 이 규칙으로만 오버라이드 */
-pre#portrait {
-  /* 텍스트 아트가 줄바꿈/공백 그대로 보이도록 */
-  white-space: pre;
-
-  /* 화면에 맞는 크기(원하면 font-size 조절해서 스케일 변경) */
-  width: 100%;
-  max-height: 220px;     /* 필요 시 200~280px 사이로 조절 */
-  overflow: hidden;
-
-  /* 글꼴/가독성 */
-  font-family: 'DungGeunMo', monospace;
-  font-size: 10px;       /* ASCII 크기: 8~12px 사이에서 맞춰봐 */
-  line-height: 1.05;
-
-  /* 이미지 전용 속성 무력화(이미지 아닐 때 의미 없으므로) */
-  image-rendering: auto;
-  filter: none;
-}
-
-/* === 초상(ASCII) 박스: 중앙 정렬 + 전체 노출 === */
-img#portrait {
-  /* .box와 동일한 테두리/배경/패딩을 직접 부여 (class="box" 제거 보완) */
+/* ====== 초상 ASCII 전용 ====== */
+/* 공통 박스/중앙정렬 — <pre id="portrait">에도 적용됨 */
+#portrait {
   border: 3px solid var(--border);
   background: var(--black);
   color: var(--white);
   padding: 14px;
   border-radius: 4px;
 
-  /* 중앙 정렬 + 내용 크기에 맞는 폭 */
   display: block;
-  width: auto;
   max-width: 100%;
-  margin: 0 auto;       /* 가로 중앙 정렬 */
+  margin: 0 auto;        /* 가로 중앙 정렬 */
 
-  /* 이미지용 필터 비활성화 (텍스트니까 필요 없음) */
-  image-rendering: auto;
+  image-rendering: auto; /* 텍스트엔 의미 없음, 안전하게 초기화 */
   filter: none;
 }
 
-/* ASCII 텍스트가 줄바꿈/공백 그대로 보이게 + 스크롤 없이 전체 보이게 */
+/* ASCII 전용 — 전체 노출 + 중앙 배치 */
 pre#portrait {
-  white-space: pre;      /* 공백/줄바꿈 유지 */
-  overflow: auto;        /* 필요시 스크롤 */
-  max-height: none;      /* 잘림 방지 */
-
+  white-space: pre;       /* 공백/줄바꿈 유지 */
+  overflow: auto;         /* 가로/세로 스크롤 허용 (원치 않으면 hidden으로) */
+  max-height: none;       /* 잘림 방지 */
+  width: auto;            /* 내용 크기에 맞춤 */
+  height: auto;           /* 강제 높이 해제 */
+  display: inline-block;  /* 내용 폭에 맞추고… */
+  text-align: left;       /* 내부 텍스트는 왼쪽 정렬 유지 */
   font-family: 'DungGeunMo', monospace;
-  font-size: 5px;        /* ASCII 크기 */
+  font-size: 5px;         /* ✅ 아트 크기 조절 포인트 (4–8px 사이에서 맞춰봐) */
   line-height: 1.05;
-
-  /* ✅ 중앙 정렬 핵심 */
-  display: inline-block; /* 내용 크기에 맞춤 */
-  margin: 0 auto;        /* 가로 중앙 정렬 */
-  width: auto;           /* 화면 100% 차지하지 않게 */
-  text-align: left;      /* 아트 내부 텍스트는 왼쪽 정렬 유지 */
 }
-
