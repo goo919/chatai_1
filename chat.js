@@ -12,6 +12,29 @@ let isSpeechEnabled = true;
 let userName = '';
 let isUserNameSet = false;
 
+// === Hangul 모음 판별 유틸 (전역) ===
+const HANGUL_BASE = 0xAC00;
+const HANGUL_LAST = 0xD7A3;
+// 중성 인덱스 0..20: ㅏ,ㅐ,ㅑ,ㅒ,ㅓ,ㅔ,ㅕ,ㅖ,ㅗ,ㅘ,ㅙ,ㅚ,ㅛ,ㅜ,ㅝ,ㅞ,ㅟ,ㅠ,ㅡ,ㅢ,ㅣ
+// "입 크게 여는" 계열 (원하는 대로 조정 가능)
+const OPEN_JUNGSEONG = new Set([8,9,10,11,12,13,14,15,16,17,18,20]); 
+// ㅗ,ㅘ,ㅙ,ㅚ,ㅛ,ㅜ,ㅝ,ㅞ,ㅟ,ㅠ,ㅡ,ㅣ
+
+function isLatinVowel(ch) {
+  return /[AEIOUaeiou]/.test(ch);
+}
+function isHangulOpenVowel(ch) {
+  const code = ch.codePointAt(0);
+  if (code < HANGUL_BASE || code > HANGUL_LAST) return false;
+  const syllableIndex = code - HANGUL_BASE; // 0..11171
+  const jungseongIndex = Math.floor(syllableIndex / 28) % 21;
+  return OPEN_JUNGSEONG.has(jungseongIndex);
+}
+function isVowelChar(ch) {
+  if (!/\S/.test(ch)) return false; // 공백/개행/탭 무시
+  return isLatinVowel(ch) || isHangulOpenVowel(ch);
+}
+
 // === 오디오 (단일 AudioContext 재사용) ===
 let audioCtx;
 function ensureAudioCtx() {
@@ -204,7 +227,7 @@ function showFrame(txt) {
 }
 
 // === 비프(글자 출력) 타이밍에 맞춘 입 모양 토글 ===
-let mouthCount = 0; // 비공백 글자 카운트
+let mouthCount = 0; // (모음) 글자 카운트
 
 function resetMouth() {
   mouthCount = 0;
@@ -212,7 +235,7 @@ function resetMouth() {
 }
 
 function onBeepCharToggle(ch) {
-  if (!/\S/.test(ch)) return; // 공백/줄바꿈 무시
+  if (!isVowelChar(ch)) return; // ✅ 모음에서만 반응
   mouthCount++;
   // 홀수 → 입 벌림(2번), 짝수 → 입 다묾(1번)
   showFrame(mouthCount % 2 ? FRAME_TALK_2 : FRAME_TALK_1);
@@ -226,7 +249,7 @@ function speakWithAnimation(targetEl, text, maxLength = 160, delay = 16) {
     text,
     maxLength,
     delay,
-    onBeepCharToggle,       // 🔁 글자마다 입 모양 토글
+    onBeepCharToggle,       // 🔁 글자마다(모음만) 입 모양 토글
     () => showFrame(FRAME_IDLE) // 모두 끝나면 Idle 복귀
   );
 }
@@ -275,15 +298,22 @@ const SYSTEM_PROMPT = `너는 김건희라고 불리며, 2132년의 세계에 �
 async function sendMessage(userMessage) {
   const OPENAI_API_KEY = getOpenAIKey();
 
-  // 이름 세팅 (최초 1회)
+  // 이름 세팅: "내 이름은/제 이름은/저는/난 ..." 형태일 때만 인식
   if (!isUserNameSet) {
-    if (userMessage === '싫어' || userMessage === '안알려줄래') {
-      userName = '이름을 원치 않는 사람';
+    const m = userMessage.match(/(?:내\s*이름은|제\s*이름은|저는|난)\s*([^\s.,!?~"'()]+)\s*$/u);
+    if (m) {
+      userName = m[1];
+      isUserNameSet = true;
     } else {
-      userName = userMessage.replace(/[^\p{L}\p{N}\s]/gu, '')
-                            .trim().split(/\s+/)[0] || '낯선이';
+      userName = '낯선이';
+      // (미확정으로 두고 싶다면 이 줄 지우고 SYSTEM_PROMPT에서 기본값 사용)
     }
-    isUserNameSet = true;
+  } else {
+    // 이미 이름이 있는 상태에서도, 뒤늦게 알려주면 업데이트
+    const m2 = userMessage.match(/(?:내\s*이름은|제\s*이름은)\s*([^\s.,!?~"'()]+)\s*$/u);
+    if (m2) {
+      userName = m2[1];
+    }
   }
 
   const system = SYSTEM_PROMPT.replace('${NAME}', userName || '낯선이');
@@ -360,7 +390,7 @@ window.addEventListener('DOMContentLoaded', () => {
   p.appendChild(span);
   chatBox.appendChild(p);
 
-  // 인사에 비프 동기화 입 모양 적용
+  // 인사에 비프 동기화 입 모양 적용 (모음만 반응)
   speakWithAnimation(span, `김건희: ${greet}`, 160, 16);
 
   userInput.addEventListener('keydown', (e) => {
