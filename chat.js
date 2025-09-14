@@ -169,8 +169,7 @@ const FRAME_TALK_1 = String.raw`
 ██▓▓▓▓▓▓▓▓▓▓▓▓▓▓██████████▓██▓██████████████████▓▓█▓▓█████████▓▓▓▓▓▓▓▓▓▓▓▓▓██▓██
 ███▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓█████▓▓▓███████████████████▓▓█▓▓▓▓▓█████▓▓▓▓▓▓▓▓▓▓▓▓▓▓██████
 ████▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓███▓▓▓▓▓▓▓▓████████████████▓█▓▓▓▓▓▓▓▓▓███▓▓▓▓▓▓▓▓▓▓▓▓███████
-████▓▓▓▓▓▓▓▓▓▓▓▓▓▓██▓▓▓▓▓▓▓▓▓▓▓███████████████▓██▓▓▓▓▓▓▓▓▓███▓▓▓▓▓▓▓▓▓▓▓████████
-████▓▓▓▓▓▓▓▓▓▓▓▓▓▓███▓▓▓▓▓▓▓▓▓▓▓█████████████▓██▓▓▓▓▓▓▓▓▓███▓▓▓▓▓▓▓▓▓▓▓▓████████`;
+████▓▓▓▓▓▓▓▓▓▓▓▓▓▓██▓▓▓▓▓▓▓▓▓▓▓███████████████▓██▓▓▓▓▓▓▓▓▓███▓▓▓▓▓▓▓▓▓▓▓████████`;
 
 const FRAME_TALK_2 = String.raw`                            
                             ▓▒░ ░▓▓▓████▓▓▓▓▓░░                                 
@@ -220,6 +219,52 @@ const FRAME_TALK_2 = String.raw`
 // Idle은 기본으로 TALK_1과 동일하게 시작. 필요 시 워드이미지로 교체.
 const FRAME_IDLE = FRAME_TALK_1;
 
+// === 프레임 정규화 유틸 ===
+function splitLines(s) {
+  return s.replace(/\r\n/g, '\n').split('\n');
+}
+function joinLines(arr) { return arr.join('\n'); }
+
+function getMaxColsRows(frames) {
+  let maxCols = 0, maxRows = 0;
+  for (const f of frames) {
+    const lines = splitLines(f);
+    maxRows = Math.max(maxRows, lines.length);
+    for (const ln of lines) maxCols = Math.max(maxCols, ln.length);
+  }
+  return { maxCols, maxRows };
+}
+function normalizeFrames(frames) {
+  const { maxCols, maxRows } = getMaxColsRows(frames);
+  const normalized = frames.map(f => {
+    const lines = splitLines(f);
+    const out = [];
+    for (let r = 0; r < maxRows; r++) {
+      const src = lines[r] ?? '';
+      const padded = src + ' '.repeat(Math.max(0, maxCols - src.length));
+      out.push(padded);
+    }
+    return joinLines(out);
+  });
+  return { normalized, maxRows };
+}
+
+// === 정규화 & 높이 고정 준비 ===
+const { normalized: __NF__, maxRows: __MAX_ROWS__ } =
+  normalizeFrames([FRAME_TALK_1, FRAME_TALK_2, FRAME_IDLE]);
+
+const F1    = __NF__[0];   // 입 다문 프레임(정규화)
+const F2    = __NF__[1];   // 입 벌린 프레임(정규화)
+const FIDLE = __NF__[2];   // idle 프레임(정규화)
+
+function lockPortraitHeight() {
+  if (!portraitEl) return;
+  const cs = getComputedStyle(portraitEl);
+  let lh = parseFloat(cs.lineHeight);
+  if (Number.isNaN(lh)) lh = parseFloat(cs.fontSize) * 1.2;
+  portraitEl.style.minHeight = `${Math.ceil(lh * __MAX_ROWS__)}px`;
+}
+
 // === 렌더링 ===
 function showFrame(txt) {
   if (!portraitEl) return;
@@ -231,14 +276,14 @@ let mouthCount = 0; // (모음) 글자 카운트
 
 function resetMouth() {
   mouthCount = 0;
-  showFrame(FRAME_TALK_1); // 시작은 입 다문 상태
+  showFrame(F1); // 시작은 입 다문 상태
 }
 
 function onBeepCharToggle(ch) {
   if (!isVowelChar(ch)) return; // ✅ 모음에서만 반응
   mouthCount++;
   // 홀수 → 입 벌림(2번), 짝수 → 입 다묾(1번)
-  showFrame(mouthCount % 2 ? FRAME_TALK_2 : FRAME_TALK_1);
+  showFrame(mouthCount % 2 ? F2 : F1);
 }
 
 // 말하는 동안: 비프에 동기화해 프레임 토글, 끝나면 Idle
@@ -250,7 +295,7 @@ function speakWithAnimation(targetEl, text, maxLength = 160, delay = 16) {
     maxLength,
     delay,
     onBeepCharToggle,       // 🔁 글자마다(모음만) 입 모양 토글
-    () => showFrame(FRAME_IDLE) // 모두 끝나면 Idle 복귀
+    () => showFrame(FIDLE)  // 모두 끝나면 Idle 복귀
   );
 }
 
@@ -298,7 +343,7 @@ const SYSTEM_PROMPT = `너는 김건희라고 불리며, 2132년의 세계에 �
 async function sendMessage(userMessage) {
   const OPENAI_API_KEY = getOpenAIKey();
 
-  // 이름 세팅: "내 이름은/제 이름은/저는/난 ..." 형태일 때만 인식
+  // 이름 세팅: "내 이름은/제 이름은/저는/난 ..." 형태일 때만 인식 (처음 인사 '안녕' 등이 이름으로 박히지 않게)
   if (!isUserNameSet) {
     const m = userMessage.match(/(?:내\s*이름은|제\s*이름은|저는|난)\s*([^\s.,!?~"'()]+)\s*$/u);
     if (m) {
@@ -379,8 +424,11 @@ sendButton.addEventListener('click', async () => {
 });
 
 window.addEventListener('DOMContentLoaded', () => {
+  // 프레임 라인수 기반으로 초상 높이 고정 → 대화 중 흔들림 방지
+  lockPortraitHeight();
+
   // 첫 인사 + 초상 Idle 세팅
-  showFrame(FRAME_IDLE);
+  showFrame(FIDLE);
 
   // 첫 인사
   const greet = '...왔구나.';
