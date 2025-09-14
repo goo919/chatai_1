@@ -185,7 +185,7 @@ pre#portrait {
   max-height: none;      /* 잘림 방지 — 전체가 보이도록 제한 해제 */
 
   font-family: 'DungGeunMo', monospace;
-  font-size: 10px;       /* 크기 조절 포인트 (8~12px에서 맞춰봐) */
+  font-size: 5px;       /* 크기 조절 포인트 (8~12px에서 맞춰봐) */
   line-height: 1.05;
 }
 
