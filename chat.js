@@ -41,15 +41,17 @@ function ensureAudioCtx(){
 }
 function playBeep(freq = 440){
   if (!isSpeechEnabled) return;
-  const ctx = ensureAudioCtx();
-  const osc = ctx.createOscillator();
-  const gain= ctx.createGain();
-  osc.connect(gain); gain.connect(ctx.destination);
-  osc.frequency.setValueAtTime(freq, ctx.currentTime);
-  gain.gain.setValueAtTime(0.0001, ctx.currentTime);
-  gain.gain.exponentialRampToValueAtTime(0.2, ctx.currentTime + 0.02);
-  gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.1);
-  osc.start(); osc.stop(ctx.currentTime + 0.12);
+  try{
+    const ctx = ensureAudioCtx();
+    const osc = ctx.createOscillator();
+    const gain= ctx.createGain();
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.frequency.setValueAtTime(freq, ctx.currentTime);
+    gain.gain.setValueAtTime(0.0001, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.2, ctx.currentTime + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.1);
+    osc.start(); osc.stop(ctx.currentTime + 0.12);
+  }catch{}
 }
 
 // === 안전한 타이핑 효과 (비프 동기 콜백 지원) ===
@@ -263,7 +265,7 @@ const F_OO_CENTER = String.raw`
               ░█████████  ░▓█▓▓█▓▓▒▒░     ░▒▒████████████████████░              
                ░▓██████▓ ░░░░░▒▒▓████▒  ▒▓███████████████████████▒              
                ░▓▒▒░▓██▓    ░░░░░▒▒▓▒░  ░▓▓▓▒▒▒▒▓████████████████▒              
-               ▒▒▓▒▒░▓█▒   ▒▓▓░░█▓▒▒     ▓▒░░▓██▓▓███████████████░              
+               ▒▒▓▒▒░▓█▒   ▒▓░░█▓▒▒     ▓▒░░▓██▓▓███████████████░              
                ▒▒  ▒▓▒▓░       ▒▒░       ▓▒░░░▒▒░▒▓▓████████████▓               
                ░▓ ▒▓█░▒                  ▓▓░      ░▒▓█████████▓▓░               
                 ▓▒▒▓█▒░░                 ░▓▒       ░▓█████████▓░                
@@ -429,6 +431,12 @@ const F_CO_CENTER = String.raw`
 ███▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓███▓▓▓▓▓▓▓▓███████████████████▓▓█▓▓▓▓▓█████▓▓▓▓▓▓▓▓▓▓▓▓▓▓██████
 ████▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓███▓▓▓▓▓▓▓▓████████████████▓█▓▓▓▓▓▓▓▓▓███▓▓▓▓▓▓▓▓▓▓▓▓███████
 ████▓▓▓▓▓▓▓▓▓▓▓▓▓▓██▓▓▓▓▓▓▓▓▓▓▓███████████████▓██▓▓▓▓▓▓▓▓▓███▓▓▓▓▓▓▓▓▓▓▓████████`;
+
+/* =========================
+   ⚠ 누락 프레임 보완
+   ========================= */
+// 눈 뜨고 입 벌림 (왼쪽) — 원본에 없어서 안전 대체
+const F_OO_LEFT = F_OO_CENTER;
 
 /* =========================
    프레임 정규화 & 선택
@@ -783,19 +791,14 @@ async function sendMessage(userMessage){
     max_tokens: 1000
   };
 
-  try{
-    const res = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: { 'Content-Type':'application/json', 'Authorization': `Bearer ${OPENAI_API_KEY}` },
-      body: JSON.stringify(payload)
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data?.error?.message || 'OpenAI API 에러');
-    return data.choices?.[0]?.message?.content ?? '';
-  } catch (error){
-    if (String(error.message).includes('429')) throw new Error('나는 너무 피곤해.. zzzz');
-    throw error;
-  }
+  const res = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: { 'Content-Type':'application/json', 'Authorization': `Bearer ${OPENAI_API_KEY}` },
+    body: JSON.stringify(payload)
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data?.error?.message || 'OpenAI API 에러');
+  return data.choices?.[0]?.message?.content ?? '';
 }
 
 // === 이벤트 ===
@@ -839,7 +842,10 @@ window.addEventListener('DOMContentLoaded', () => {
   speakWithAnimation(span, `김건희: ${greet}`, 160, 16);
 
   userInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') sendButton.click();
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      sendButton.click();
+    }
   });
 
   // 깜빡임 + 카메라 추적
