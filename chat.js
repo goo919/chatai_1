@@ -893,3 +893,144 @@ window.addEventListener('DOMContentLoaded', () => {
     startCameraAndTracking();
   }
 });
+// =========================
+// ▶ 자동 비디오 창 (파일/URL → 메인 인식 소스)
+// - 페이지 로드시 자동으로 새 창을 띄움 (Safari 대응: 차단 시 화면 상단에 재시도 배너 표시)
+// - 메인과 postMessage로 상호작용
+// =========================
+let EXTERNAL_FEED = false;
+let originalStream = null; // 복귀용
+let videoWin = null;
+// 현재 스트림 멈추기
+function stopCurrentStream() {
+try {
+const v = camVideo;
+if (!v) return;
+if (v.srcObject) {
+originalStream = v.srcObject;
+v.srcObject.getTracks().forEach(t => t.stop());
+}
+} catch {}
+}
+// 외부 영상 사용
+async function useExternalVideo(url) {
+try {
+stopCurrentStream();
+camVideo.srcObject = null;
+camVideo.src = url;
+camVideo.loop = true;
+await camVideo.play().catch(()=>{});
+EXTERNAL_FEED = true;
+if (camStatus) {
+camStatus.textContent = 인식: 대기\n방향: 정면\n소스: 외부 영상;
+if (camPanel) camPanel.style.borderColor = '#f1c40f';
+}
+} catch (e) {
+console.error('외부 영상 재생 실패:', e);
+if (camStatus) camStatus.textContent = 외부 영상 오류: ${e.message || e};
+}
+}
+// 웹캠 복귀
+async function restoreWebcam() {
+try { camVideo.pause(); } catch {}
+camVideo.removeAttribute('src');
+camVideo.src = '';
+EXTERNAL_FEED = false;
+await startCameraAndTracking(); // 기존 함수 재사용
+}
+// 팝업(또는 새창) HTML
+function buildVideoPickerHTML() {
+return `
+<!DOCTYPE html><html lang="ko"><head> <meta charset="utf-8"/> <meta name="viewport" content="width=device-width, initial-scale=1" /> <title>외부 영상 공급</title> <style> :root{ color-scheme: dark; } body{ margin:0; font:14px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Apple SD Gothic Neo", "Noto Sans KR", "맑은 고딕", sans-serif; background:#0b0b0d; color:#eaeaea;} .bar{ padding:10px; background:#141417; display:flex; gap:8px; align-items:center; position:sticky; top:0; z-index:2; border-bottom:1px solid #1f1f25;} .bar input[type="text"]{ flex:1; background:#0b0b0d; color:#eee; border:1px solid #2a2a33; padding:8px 10px; border-radius:10px; } .bar input[type="file"]{ color:#bbb; } .bar button{ background:#00d0ff; color:#000; border:0; padding:8px 12px; border-radius:12px; cursor:pointer; font-weight:700; } .bar button.secondary{ background:#2a2a33; color:#eaeaea; } video{ width:100%; height:calc(100vh - 58px); background:#000; object-fit:contain; display:block; } .hint{position:absolute; right:10px; bottom:10px; opacity:0.7; font-size:12px} </style> </head><body> <div class="bar"> <input id="url" type="text" placeholder="동영상 URL (mp4/webm/HLS*) 붙여넣기 후 Enter" /> <input id="file" type="file" accept="video/*" /> <button id="use" class="secondary" title="현재 재생 중인 영상을 메인에 연결">메인에 적용</button> <button id="back" title="메인에서 웹캠으로 복귀">웹캠 복귀</button> </div> <video id="v" controls playsinline></video> <div class="hint">* 외부 URL은 CORS/자동재생 제약이 있을 수 있어요. 파일 선택이 가장 안전합니다.</div> <script> const v = document.getElementById('v'); const urlInput = document.getElementById('url'); const fileInput = document.getElementById('file'); const useBtn = document.getElementById('use'); const backBtn = document.getElementById('back'); let currentBlobUrl = null;
+function playSafe(){ v.play().catch(()=>{}); }
+fileInput.addEventListener('change', () => {
+if (currentBlobUrl) URL.revokeObjectURL(currentBlobUrl);
+const f = fileInput.files && fileInput.files[0];
+if (!f) return;
+currentBlobUrl = URL.createObjectURL(f);
+v.src = currentBlobUrl;
+playSafe();
+});
+urlInput.addEventListener('keydown', (e)=>{
+if (e.key === 'Enter') {
+v.src = urlInput.value.trim();
+playSafe();
+}
+});
+useBtn.addEventListener('click', ()=>{
+let src = v.currentSrc || v.src || urlInput.value.trim();
+if (!src) { alert('먼저 동영상을 선택/재생해 주세요.'); return; }
+window.opener?.postMessage({ type:'externalVideo', url: src }, '*');
+});
+backBtn.addEventListener('click', ()=>{
+window.opener?.postMessage({ type:'restoreWebcam' }, '*');
+});
+// 클릭 시 자동재생 보조
+document.addEventListener('click', playSafe);
+</script>
+</body></html>`; }
+// 자동 새창 열기 (Safari/팝업차단 대응)
+function openVideoWindowAuto() {
+const w = 560, h = 420;
+const left = Math.max(0, (screen.width - w) / 2);
+const top = Math.max(0, (screen.height - h) / 2);
+// Safari 에서 새 "윈도우"로 열리도록 name 고정 + features 지정
+videoWin = window.open('', 'kim_external_video',
+width=${w},height=${h},left=${left},top=${top},resizable=yes,menubar=no,toolbar=no,location=no,status=no);
+if (!videoWin || videoWin.closed) return false;
+const html = buildVideoPickerHTML();
+// 동일 출처 문서 주입
+try {
+videoWin.document.open();
+videoWin.document.write(html);
+videoWin.document.close();
+} catch (e) {
+console.warn('비디오 창 HTML 주입 실패:', e);
+}
+return true;
+}
+// 팝업 차단 시 상단 띠 배너 제공
+function showPopupRetryBanner() {
+if (document.getElementById('popup-retry-banner')) return;
+const bar = document.createElement('div');
+bar.id = 'popup-retry-banner';
+bar.innerHTML = <div style=" position:fixed; inset:auto 0 0 0; top:0; background:#141417; color:#eaeaea; border-bottom:1px solid #2a2a33; padding:10px 12px; display:flex; gap:10px; align-items:center; z-index:99999; font:14px/1.45 -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Apple SD Gothic Neo,Noto Sans KR,Arial,sans-serif;"> <strong>비디오 창 열기</strong> <span style="opacity:.8">브라우저가 자동 창 열기를 막았어. 아래 버튼으로 한 번만 허용해줘.</span> <button id="popup-retry-btn" style="margin-left:auto;background:#00d0ff;color:#000;border:0;padding:8px 12px;border-radius:10px;font-weight:700;cursor:pointer">열기</button> </div>;
+document.body.appendChild(bar);
+const btn = document.getElementById('popup-retry-btn');
+btn.addEventListener('click', ()=>{
+const ok = openVideoWindowAuto();
+if (ok) bar.remove();
+else alert('창을 열 수 없었어. 브라우저 팝업 허용을 확인해줘.');
+});
+}
+// 부모-자식 메시지 처리
+window.addEventListener('message', (ev)=>{
+if (!ev?.data) return;
+if (ev.data.type === 'externalVideo' && ev.data.url) {
+useExternalVideo(ev.data.url);
+} else if (ev.data.type === 'restoreWebcam') {
+restoreWebcam();
+}
+});
+// 창이 닫혔으면 자동 재생성 시도 (집착 X, 포커스 시 1회)
+let _videoWinCheckArmed = false;
+window.addEventListener('focus', ()=>{
+if (_videoWinCheckArmed && (!videoWin || videoWin.closed)) {
+const ok = openVideoWindowAuto();
+if (!ok) showPopupRetryBanner();
+_videoWinCheckArmed = false;
+}
+});
+// DOM 로드시 자동 오픈 시도
+(function bootExternalWindowAuto(){
+const tryOpen = openVideoWindowAuto();
+if (!tryOpen) {
+// 차단됨 → 재시도 배너 표시
+showPopupRetryBanner();
+// 다음 포커스에서 한 번 더 시도
+_videoWinCheckArmed = true;
+}
+})();
+// =========================
+// ▶ 끝
+// =========================
