@@ -265,11 +265,143 @@ function lockPortraitHeight() {
   portraitEl.style.minHeight = `${Math.ceil(lh * __MAX_ROWS__)}px`;
 }
 
+/* =========================
+   👁️ 눈동자/깜빡임/카메라 추가
+   ========================= */
+
+// 눈 좌표/동작 설정 (필요 시 미세조정)
+const EYE_LEFT_POS  = { row: 22, col: 28 }; // 좌안 대략 위치
+const EYE_RIGHT_POS = { row: 22, col: 39 }; // 우안 대략 위치
+const EYE_CHAR      = '█';                  // 동공 표시 문자
+const EYE_BG        = ' ';                  // 깜빡임시 덮는 문자
+const EYE_RADIUS    = 2;                    // 좌우 이동 허용 폭(칼럼 수)
+
+// 깜빡임 상태
+let isBlinking = false;
+let blinkTimer = null;
+
+// 카메라/얼굴 추적 상태
+let videoEl = null;
+let faceDetector = null;
+let eyeDir = 0;            // -1(왼) ~ 0(정면) ~ +1(오른)
+let trackingTimer = null;
+
+// 문자열 특정 (row,col)에 문자 세팅
+function setCharAt(frameText, row, col, ch) {
+  const lines = splitLines(frameText);
+  if (row < 0 || row >= lines.length) return frameText;
+  const line = lines[row] ?? '';
+  if (col < 0 || col >= line.length) return frameText;
+  lines[row] = line.substring(0, col) + ch + line.substring(col + 1);
+  return joinLines(lines);
+}
+
+// 눈(동공) 오버레이
+function overlayEyes(frameText, dir = 0, blink = false) {
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  const dx = Math.round(clamp(dir, -1, 1) * EYE_RADIUS);
+  const pupil = blink ? EYE_BG : EYE_CHAR;
+
+  let out = frameText;
+  out = setCharAt(out, EYE_LEFT_POS.row,  EYE_LEFT_POS.col  + dx, pupil);
+  out = setCharAt(out, EYE_RIGHT_POS.row, EYE_RIGHT_POS.col + dx, pupil);
+  return out;
+}
+
 // === 렌더링 ===
 function showFrame(txt) {
   if (!portraitEl) return;
-  portraitEl.textContent = txt;
+  // 눈동자/깜빡임 오버레이 적용
+  const withEyes = overlayEyes(txt, eyeDir, isBlinking);
+  portraitEl.textContent = withEyes;
 }
+
+// 깜빡임(랜덤)
+function startBlinking() {
+  if (blinkTimer) clearTimeout(blinkTimer);
+  const next = () => {
+    const wait = 3000 + Math.random() * 4000; // 3~7초
+    blinkTimer = setTimeout(() => {
+      isBlinking = true;
+      showFrame(FIDLE);
+      setTimeout(() => {
+        isBlinking = false;
+        showFrame(FIDLE);
+        next();
+      }, 120); // 깜빡임 지속
+    }, wait);
+  };
+  next();
+}
+
+// 카메라 시작 + 얼굴 추적
+async function startCameraAndTracking() {
+  try {
+    videoEl = document.createElement('video');
+    videoEl.autoplay = true;
+    videoEl.playsInline = true;
+    videoEl.muted = true;
+    Object.assign(videoEl.style, {
+      position: 'fixed',
+      opacity: '0',
+      pointerEvents: 'none',
+      width: '1px',
+      height: '1px',
+    });
+    document.body.appendChild(videoEl);
+
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'user' }, audio: false
+    });
+    videoEl.srcObject = stream;
+
+    if ('FaceDetector' in window) {
+      faceDetector = new window.FaceDetector({ fastMode: true, maxDetectedFaces: 5 });
+    } else {
+      console.warn('FaceDetector API 미지원: 눈 추적 비활성(정면 고정).');
+      faceDetector = null;
+    }
+
+    if (trackingTimer) cancelAnimationFrame(trackingTimer);
+    const tick = async () => {
+      try {
+        if (faceDetector && videoEl.readyState >= 2) {
+          const faces = await faceDetector.detect(videoEl);
+          if (faces && faces.length) {
+            // 가장 큰(가까운) 얼굴 선택
+            let best = faces[0];
+            let bestArea = best.boundingBox.width * best.boundingBox.height;
+            for (let i = 1; i < faces.length; i++) {
+              const f = faces[i];
+              const a = f.boundingBox.width * f.boundingBox.height;
+              if (a > bestArea) { best = f; bestArea = a; }
+            }
+            const w = videoEl.videoWidth || 1;
+            const cx = best.boundingBox.x + best.boundingBox.width / 2;
+            const nx = (cx / w) * 2 - 1; // 0..1 → -1..+1
+            // 셀카 반전 느낌: 필요하면 부호를 바꾸세요
+            eyeDir = -nx;
+          } else {
+            // 얼굴이 사라지면 서서히 정면으로 복귀
+            eyeDir *= 0.9;
+          }
+          // 현재 프레임 갱신
+          showFrame(FIDLE);
+        }
+      } catch (e) {
+        // 탐지 에러는 무시
+      }
+      trackingTimer = requestAnimationFrame(tick);
+    };
+    tick();
+  } catch (err) {
+    console.error('카메라 시작 실패:', err);
+  }
+}
+
+/* =========================
+   👁️ 추가 끝
+   ========================= */
 
 // === 비프(글자 출력) 타이밍에 맞춘 입 모양 토글 ===
 let mouthCount = 0; // (모음) 글자 카운트
@@ -444,4 +576,10 @@ window.addEventListener('DOMContentLoaded', () => {
   userInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') sendButton.click();
   });
+
+  // 👁️ 추가: 랜덤 깜빡임 + 카메라 추적 시작
+  startBlinking();
+  if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+    startCameraAndTracking();
+  }
 });
