@@ -1,77 +1,28 @@
 <!DOCTYPE html>
 <html lang="ko">
-  <script defer src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
-
-
-  /* stage가 그리드가 아닐 경우 세로 스택으로라도 정렬되게 */
-  #stage{
-    display: grid !important;
-    grid-template-areas:
-      "portrait"
-      "ai"
-      "input";
-    gap: 12px;
-    padding: 16px;
-    max-width: 960px;
-    margin: 24px auto;
-  }
-  #ai-box{ grid-area: ai; }
-  #user-box{ grid-area: input; }
-  #portrait{ grid-area: portrait; }
-  /* chat 영역 기본 가시성 */
-  #chat-box{
-    min-height: 220px;
-    background:#0b0b0d;
-    border:1px solid #222;
-    border-radius:10px;
-    padding:12px;
-    overflow:auto;
-  }
-</style>
-
-  
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>RIP - KIM</title>
 
-  <!-- 기본 메타 -->
-  <meta name="title" content="RIP - KIM">
-  <meta name="description" content="고인과 대화하는 미니멀 챗 인터페이스.">
+  <!-- 라이브러리 -->
+  <script defer src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
 
-  <!-- Open Graph / Discord / Kakao -->
-  <meta property="og:type" content="website">
-  <meta property="og:url" content="https://YOUR-DOMAIN.example.com/">
-  <meta property="og:title" content="RIP - KIM">
-  <meta property="og:site_name" content="RIP - KIM">
-  <meta property="og:description" content="고인과 대화하는 미니멀 챗 인터페이스.">
-  <meta property="og:image" content="https://YOUR-DOMAIN.example.com/og-image.png">
-  <meta property="og:image:width" content="1200">
-  <meta property="og:image:height" content="630">
-
-  <!-- Twitter Card -->
-  <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:url" content="https://YOUR-DOMAIN.example.com/">
-  <meta name="twitter:title" content="RIP - KIM">
-  <meta name="twitter:description" content="고인과 대화하는 미니멀 챗 인터페이스.">
-  <meta name="twitter:image" content="https://YOUR-DOMAIN.example.com/og-image.png">
-
-  <!-- PWA / 브라우저 꾸미기 (선택) -->
+  <!-- 메타 -->
   <meta name="theme-color" content="#000000">
   <link rel="icon" href="/favicon.png">
-  <!-- <link rel="manifest" href="/manifest.json"> -->
 
-  <!-- Pixel-ish font -->
+  <!-- 폰트(선택) -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet" />
 
-  <link rel="stylesheet" href="styles.css?v=2" />
+  <!-- 외부 CSS (충돌 방지: 모든 스타일은 여기서만) -->
+  <link rel="stylesheet" href="styles.css?v=3" />
 </head>
 <body>
   <div id="app">
     <main id="stage">
-      <!-- 중앙 초상: ASCII 전용 -->
+      <!-- 중앙 초상: 네가 올린 ASCII 폰트로만 렌더 -->
       <pre id="portrait"></pre>
 
       <!-- AI 대사 박스 -->
@@ -83,11 +34,12 @@
       <section id="user-box" class="box box-input">
         <input id="user-input" type="text" placeholder="고인에게 말을 걸어주세요" autocomplete="off" />
         <button id="send-button" class="btn">SEND</button>
+        <!-- 팝업 차단 우회 수동 버튼 -->
+        <button id="open-video" class="btn" type="button" title="팝업 차단 시 눌러서 열기">비디오창 열기</button>
       </section>
     </main>
   </div>
 
-  <!-- 캐시 무효화를 위해 쿼리스트링 버전 붙임 -->
-  <script src="chat.js?v=2"></script>
+  <script src="chat.js?v=3"></script>
 </body>
 </html>
