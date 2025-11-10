@@ -7,6 +7,9 @@
    - 외부 비디오 팝업 자동 오픈(차단 시 재시도 배너)
    ========================= */
 
+const TWO_CHANNEL_MODE = true; // 메인은 웹캠 유지, 팝업이 영상→ASCII 처리
+
+
 // === DOM ===
 const chatBox   = document.getElementById('chat-box');
 const userInput = document.getElementById('user-input');
@@ -990,62 +993,122 @@ function buildVideoPickerHTML() {
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>외부 영상 공급</title>
+<title>영상 → ASCII</title>
 <style>
 :root{ color-scheme: dark; }
-body{ margin:0; font:14px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Apple SD Gothic Neo", "Noto Sans KR", "맑은 고딕", sans-serif; background:#0b0b0d; color:#eaeaea;}
+body{ margin:0; font:14px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Apple SD Gothic Neo", "맑은 고딕", sans-serif; background:#0b0b0d; color:#eaeaea;}
 .bar{ padding:10px; background:#141417; display:flex; gap:8px; align-items:center; position:sticky; top:0; z-index:2; border-bottom:1px solid #1f1f25;}
 .bar input[type="text"]{ flex:1; background:#0b0b0d; color:#eee; border:1px solid #2a2a33; padding:8px 10px; border-radius:10px; }
 .bar input[type="file"]{ color:#bbb; }
 .bar button{ background:#00d0ff; color:#000; border:0; padding:8px 12px; border-radius:12px; cursor:pointer; font-weight:700; }
-.bar button.secondary{ background:#2a2a33; color:#eaeaea; }
-video{ width:100%; height:calc(100vh - 58px); background:#000; object-fit:contain; display:block; }
+.wrap{ height:calc(100vh - 58px); display:grid; grid-template-columns: 0px 1fr; } /* 비디오는 숨김, 필요시 1fr 1fr 로 바꾸면 좌/우 */
+#v{ width:100%; height:100%; background:#000; object-fit:contain; display:none; } /* 필요하면 display:block 으로 */
+#ascii{ margin:0; height:100%; overflow:auto; background:#000; white-space:pre; font-family: "SFMono-Regular",Consolas,"Liberation Mono",Menlo,monospace; font-size:8px; line-height:8px; }
 .hint{position:absolute; right:10px; bottom:10px; opacity:0.7; font-size:12px}
 </style>
 </head>
 <body>
 <div class="bar">
-  <input id="url" type="text" placeholder="동영상 URL (mp4/webm/HLS*) 붙여넣기 후 Enter" />
+  <input id="url" type="text" placeholder="동영상 URL (mp4/webm/HLS*) 붙여넣고 Enter" />
   <input id="file" type="file" accept="video/*" />
-  <button id="use" class="secondary" title="현재 재생 중인 영상을 메인에 연결">메인에 적용</button>
-  <button id="back" title="메인에서 웹캠으로 복귀">웹캠 복귀</button>
+  <button id="apply" title="(선택) 메인으로 URL 보내기">메인으로 보내기</button>
 </div>
-<video id="v" controls playsinline></video>
-<div class="hint">* 외부 URL은 CORS/자동재생 제약이 있을 수 있어요. 파일 선택이 가장 안전합니다.</div>
+<div class="wrap">
+  <video id="v" controls playsinline></video>
+  <pre id="ascii"></pre>
+</div>
+<div class="hint">* GitHub Pages의 /videos/*는 CORS 문제 없음. 외부 도메인은 CORS 필요.</div>
 <script>
 const v = document.getElementById('v');
 const urlInput = document.getElementById('url');
 const fileInput = document.getElementById('file');
-const useBtn = document.getElementById('use');
-const backBtn = document.getElementById('back');
+const asciiEl  = document.getElementById('ascii');
+const applyBtn = document.getElementById('apply');
+
 let currentBlobUrl = null;
+let timer = null;
+let cvs = null, ctx = null;
+
+// ===== ASCII 설정(원하면 숫자만 바꿔도 됨) =====
+let COLS = 96;        // 가로 문자 수 (64~120 권장)
+let FPS  = 10;        // 프레임율
+const RAMP = " .'`^\\\",:;Il!i><~+_-?][}{1)(|\\\\/*tfjrxnuvczXYUJCLQ0OZmwqpdbkhao*#MW&8%B@$";
+const CHAR_ASPECT = 2.0; // 문자 종횡비 보정
+
+function ensureCanvas(){
+  if (!cvs){
+    cvs = document.createElement('canvas');
+    ctx = cvs.getContext('2d', { willReadFrequently: true });
+  }
+}
+function toChar(r,g,b,a){
+  if (a === 0) return ' ';
+  const y = 0.2126*r + 0.7152*g + 0.0722*b;
+  const idx = Math.max(0, Math.min(RAMP.length-1, Math.floor((y/255) * (RAMP.length-1))));
+  return RAMP[idx];
+}
+function drawAscii(){
+  if (!v || !v.videoWidth) return;
+  const cols = COLS;
+  const rows = Math.max(8, Math.floor((v.videoHeight / v.videoWidth) * cols / CHAR_ASPECT));
+  ensureCanvas();
+  cvs.width = cols; cvs.height = rows;
+  ctx.drawImage(v, 0, 0, cols, rows);
+  const data = ctx.getImageData(0,0,cols,rows).data;
+  let out = '';
+  for (let y=0;y<rows;y++){
+    let line = '';
+    for (let x=0;x<cols;x++){
+      const i = (y*cols + x)*4;
+      line += toChar(data[i], data[i+1], data[i+2], data[i+3]);
+    }
+    out += line + '\\n';
+  }
+  asciiEl.textContent = out;
+}
+function start(){
+  stop();
+  timer = setInterval(drawAscii, Math.max(50, 1000/FPS));
+}
+function stop(){
+  if (timer){ clearInterval(timer); timer = null; }
+}
 function playSafe(){ v.play().catch(()=>{}); }
+
+// ===== 소스 로딩 =====
 fileInput.addEventListener('change', () => {
   if (currentBlobUrl) URL.revokeObjectURL(currentBlobUrl);
   const f = fileInput.files && fileInput.files[0];
   if (!f) return;
   currentBlobUrl = URL.createObjectURL(f);
   v.src = currentBlobUrl;
+  v.removeAttribute('crossorigin');
   playSafe();
 });
 urlInput.addEventListener('keydown', (e)=>{
   if (e.key === 'Enter') {
+    v.crossOrigin = 'anonymous';
     v.src = urlInput.value.trim();
     playSafe();
   }
 });
-useBtn.addEventListener('click', ()=>{
-  let src = v.currentSrc || v.src || urlInput.value.trim();
+v.addEventListener('loadedmetadata', start);
+v.addEventListener('play', start);
+v.addEventListener('pause', stop);
+v.addEventListener('ended', stop);
+
+// (선택) 메인으로 URL 보내기 — 2채널 모드면 메인이 무시하고 자기 웹캠 유지
+applyBtn.addEventListener('click', ()=>{
+  const src = v.currentSrc || v.src || urlInput.value.trim();
   if (!src) { alert('먼저 동영상을 선택/재생해 주세요.'); return; }
   window.opener?.postMessage({ type:'externalVideo', url: src }, '*');
 });
-backBtn.addEventListener('click', ()=>{
-  window.opener?.postMessage({ type:'restoreWebcam' }, '*');
-});
+
 document.addEventListener('click', playSafe);
 </script>
 </body></html>`;
 }
+
 
 // 자동 새창 열기 (Safari/팝업차단 대응)
 function openVideoWindowAuto() {
@@ -1094,11 +1157,17 @@ function showPopupRetryBanner() {
 window.addEventListener('message', (ev)=>{
   if (!ev?.data) return;
   if (ev.data.type === 'externalVideo' && ev.data.url) {
-    useExternalVideo(ev.data.url);
+    if (TWO_CHANNEL_MODE) {
+      console.log('[2CH] popup handles ASCII for:', ev.data.url);
+      return; // 메인은 웹캠 유지
+    } else {
+      useExternalVideo(ev.data.url); // 단일 채널 모드에서만 메인 전환
+    }
   } else if (ev.data.type === 'restoreWebcam') {
-    restoreWebcam();
+    if (!TWO_CHANNEL_MODE) restoreWebcam(); // 2채널 모드면 원래부터 웹캠이라 아무것도 안 함
   }
 });
+
 
 // 창이 닫혔으면 자동 재생성 시도 (집착 X, 포커스 시 1회)
 let _videoWinCheckArmed = false;
