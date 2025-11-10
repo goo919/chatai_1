@@ -18,18 +18,10 @@ const chatBox   = document.getElementById('chat-box');
 const userInput = document.getElementById('user-input');
 const sendButton= document.getElementById('send-button');
 
-// ▲ 초상 ASCII 출력 엘리먼트
-const portraitEl = document.getElementById('portrait');
-
-// === 상태 ===
-let conversationHistory = []; // [{role:'user'|'assistant', content:string}]
-let isSpeechEnabled = true;
-let userName = '';
-let isUserNameSet = false;
-
-// === portrait 폰트 강제 (네가 올린 ASCII 폰트 그대로) ===
-if (portraitEl) {
-  Object.assign(portraitEl.style, {
+function applyPortraitStyle() {
+  const el = document.getElementById('portrait');
+  if (!el) return;
+  Object.assign(el.style, {
     fontFamily: `'MyAscii', monospace`,
     fontSize: '8px',
     lineHeight: '8px',
@@ -37,6 +29,11 @@ if (portraitEl) {
     whiteSpace: 'pre'
   });
 }
+
+// 기존 window.addEventListener('DOMContentLoaded', ...) 블록 안에 아래 한 줄만 추가
+// (greet 출력 직전/직후 아무데나 OK)
+applyPortraitStyle();
+
 
 // === Hangul 모음 판별 유틸 (전역) ===
 const HANGUL_BASE = 0xAC00;
@@ -437,8 +434,8 @@ function createCameraPreview(){
 
   const panel = document.createElement('div');
   panel.id = 'cam-preview';
-  Object.assign(panel.style, {
-    position: 'fixed', left: '12px', top: '12px', width: '220px',
+Object.assign(panel.style, {
+  position: 'fixed', left: '12px', top: '48px', width: '220px',
     background: 'rgba(0,0,0,0.6)', color: '#ddd', fontFamily: 'monospace',
     fontSize: '12px', border: '2px solid #2ecc71',
     borderRadius: '8px', overflow: 'hidden', zIndex: '9999',
