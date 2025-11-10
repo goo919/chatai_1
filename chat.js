@@ -1,5 +1,5 @@
 /* =========================
-   RIP-KIM chat.js (full, fixed, integrated v4)
+   RIP-KIM chat.js (full, fixed, integrated v5)
    - FaceDetector 사용, 미지원 시 face-api.js 자동 로드 폴백
    - Safari 대응(loadedmetadata 대기), 150ms 간격 추적
    - 카메라 프리뷰 패널 + 상태 표시
@@ -7,10 +7,11 @@
    - 외부 비디오 팝업 자동 오픈(차단 시 재시도 배너 + 첫 클릭 재시도)
    - 메인은 네가 올린 ASCII 폰트 그대로 유지, 팝업에서만 영상→ASCII
    - OpenAI 실패/차단 시에도 UI 멈추지 않도록 안전판 추가
+   - ✅ TEST_MODE 기본 on → 키 없이도 “복붙 즉시” 동작
    ========================= */
 
 const TWO_CHANNEL_MODE = true; // 메인은 웹캠 유지, 팝업이 영상→ASCII 처리
-const TEST_MODE = false;       // true면 OpenAI 호출 없이 모의 응답
+const TEST_MODE = true;        // ✅ 기본 true: OpenAI 없이도 바로 동작
 
 // === DOM ===
 const chatBox   = document.getElementById('chat-box');
@@ -321,6 +322,7 @@ const F_CC_CENTER = String.raw`
 ████▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓███▓▓▓▓▓▓▓▓████████████████▓█▓▓▓▓▓▓▓▓▓███▓▓▓▓▓▓▓▓▓▓▓▓███████
 ████▓▓▓▓▓▓▓▓▓▓▓▓▓▓██▓▓▓▓▓▓▓▓▓▓▓███████████████▓██▓▓▓▓▓▓▓▓▓███▓▓▓▓▓▓▓▓▓▓▓████████`;
 
+// 눈 감고 입 벌림
 const F_CO_CENTER = String.raw`                            
                               ▓▒░ ░▓▓▓████▓▓▓▓▓░░    
                           ░░░███████████████████▓▒▒                             
@@ -675,7 +677,8 @@ function renderMessage(role, text){
    OpenAI API
    ========================= */
 // ⚠️ 공개 저장소에 키 노출 금지(프로덕션은 프록시 사용)
-const OPENAI_KEY_B64 = 'c2stcHJvai0...'; // 네 키 Base64 (그대로 사용 가능)
+// ✅ TEST_MODE가 true면 아래 키/요청은 무시됨 — 복붙 즉시 구동 보장
+const OPENAI_KEY_B64 = ''; // 나중에 TEST_MODE=false로 바꾸고 btoa('sk-...') 결과를 넣어줘
 function getOpenAIKey(){
   if (!OPENAI_KEY_B64) throw new Error('API 키(base64)를 chat.js에 설정해줘.');
   try { return atob(OPENAI_KEY_B64); } catch { throw new Error('API 키 디코딩 실패'); }
@@ -781,6 +784,13 @@ window.addEventListener('DOMContentLoaded', () => {
   lockPortraitHeight();
   showPortrait();
 
+  // ✅ 폰트 로드 보장 후 재렌더 (사파리 포함)
+  document.fonts?.ready?.then(() => {
+    lockPortraitHeight();
+    showPortrait();
+  });
+  setTimeout(() => { lockPortraitHeight(); showPortrait(); }, 0);
+
   // 인사
   const greet = '...왔구나.';
   const p = document.createElement('p');
@@ -820,9 +830,8 @@ function stopCurrentStream() {
 async function useExternalVideo(url) {
   try {
     stopCurrentStream();
-    camVideo?.removeAttribute('srcObject');
     if (!camVideo) return;
-    camVideo.srcObject = null;
+    camVideo.srcObject = null;          // ✅ 불필요한 removeAttribute 제거
     camVideo.src = url;
     camVideo.loop = true;
     camVideo.load();
@@ -893,7 +902,7 @@ let cvs = null, ctx = null;
 
 let COLS = 96;
 let FPS  = 10;
-const RAMP = " .'`^\\\",:;Il!i><~+_-?][}{1)(|\\\\/*tfjrxnuvczXYUJCLQ0OZmwqpdbkhao*#MW&8%B@$";
+const RAMP = " .'`\\\",:;Il!i><~+_-?][}{1)(|\\\\/*tfjrxnuvczXYUJCLQ0OZmwqpdbkhao*#MW&8%B@$";
 const CHAR_ASPECT = 2.0;
 
 function ensureCanvas(){
