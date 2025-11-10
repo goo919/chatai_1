@@ -1,14 +1,16 @@
 /* =========================
-   RIP-KIM chat.js (full, fixed)
+   RIP-KIM chat.js (full, fixed, integrated)
    - FaceDetector 사용, 미지원 시 face-api.js 자동 로드 폴백
    - Safari 대응(loadedmetadata 대기), 150ms 간격 추적
    - 카메라 프리뷰 패널 + 상태 표시
    - ASCII 초상 방향/깜빡임/입 모양 연동
-   - 외부 비디오 팝업 자동 오픈(차단 시 재시도 배너)
+   - 외부 비디오 팝업 자동 오픈(차단 시 재시도 배너 + 첫 클릭 재시도)
+   - 메인은 네가 올린 ASCII 폰트 그대로 유지, 팝업에서만 영상→ASCII
+   - OpenAI 실패/차단 시에도 UI 멈추지 않도록 안전판 추가
    ========================= */
 
 const TWO_CHANNEL_MODE = true; // 메인은 웹캠 유지, 팝업이 영상→ASCII 처리
-
+const TEST_MODE = false;       // true면 OpenAI 호출 없이 모의 응답
 
 // === DOM ===
 const chatBox   = document.getElementById('chat-box');
@@ -23,6 +25,17 @@ let conversationHistory = []; // [{role:'user'|'assistant', content:string}]
 let isSpeechEnabled = true;
 let userName = '';
 let isUserNameSet = false;
+
+// === portrait 폰트 강제 (네가 올린 ASCII 폰트 그대로) ===
+if (portraitEl) {
+  Object.assign(portraitEl.style, {
+    fontFamily: `'MyAscii', monospace`, // 네가 올린 폰트 패밀리명
+    fontSize: '8px',
+    lineHeight: '8px',
+    letterSpacing: '0',
+    whiteSpace: 'pre'
+  });
+}
 
 // === Hangul 모음 판별 유틸 (전역) ===
 const HANGUL_BASE = 0xAC00;
@@ -260,147 +273,7 @@ const F_OC_LEFT = String.raw`
 ████▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓███▓▓▓▓▓▓▓▓████████████████▓█▓▓▓▓▓▓▓▓▓███▓▓▓▓▓▓▓▓▓▓▓▓███████
 ████▓▓▓▓▓▓▓▓▓▓▓▓▓▓██▓▓▓▓▓▓▓▓▓▓▓███████████████▓██▓▓▓▓▓▓▓▓▓███▓▓▓▓▓▓▓▓▓▓▓████████`;
 
-  
-// 눈 뜨고 입 벌림 (정면)
-const F_OO_CENTER = String.raw`                            
-                            ▓▒░ ░▓▓▓████▓▓▓▓▓░░                                 
-                          ░░░███████████████████▓▒▒                             
-                      ░░▓▓██▓███████████████████████▓▒                          
-                     ▒████████████████████▓▓███████████▓░                       
-                   ▒██▓██▓▓████████████████▓▓▓▓▓█████████▓░                     
-                  ▒███▓▓▓██████████████████▓▓▓▓▓▓▓▓▓███████░                    
-                 ░██████▓▓▓███▒▒▒░     ░▒███▓▓▓█▓▓██▓▓██████▓▒▒░                
-                 ▓█████▓▓██▓▒░            ▓██▓▓███▓██▓▓███████░                 
-                ▒█████▓████░              ░███▓▓███▓███▓███████░                
-               ░██████████▓                ▓███▓███████████████▓░               
-               ░██████████░                ░█████████████████████▒░             
-               ▒████████▓░  ░               ▒███████████████████▓░░             
-              ░█████████  ░▓█▓▓█▓▓▒▒░     ░▒▒████████████████████░              
-               ░▓██████▓ ░░░░░▒▒▓████▒  ▒▓███████████████████████▒              
-               ░▓▒▒░▓██▓    ░░░░░▒▒▓▒░  ░▓▓▓▒▒▒▒▓████████████████▒              
-               ▒▒▓▒▒░▓█▒   ▒▓▓░░█▓▒▒     ▓▒░░▓██▓▓███████████████░              
-               ▒▒  ▒▓▒▓░       ▒▒░       ▓▒░░░▒▒░▒▓▓████████████▓               
-               ░▓ ▒▓█░▒                  ▓▓░      ░▒▓█████████▓▓░               
-                ▓▒▒▓█▒░░                 ░▓▒       ░▓█████████▓░                
-                ░▓░░▒▒░▒          ░▒░▒▒░░▒▓█▒      ▒▓████████▓░▒                
-                 ░▓░  ▒▓           ░▒▒░▒▓██▒░     ▒▓▓▓█▓▓████░                  
-                  ░▓▓▓▓█                 ░░      ▒▓▓▓█▓▓████░                   
-                   ▒████▒          ░░▒▒▒▒▒▒░░  ░▒▓▓▓▓█████▓                     
-                    ░████▒        ░          ░░▓▓▓▓▓████▒▒                      
-                     ▒▒▒██▒       ░▓▓▓▓▓▓▓▓▒▓▓▒▓▓▓▓███▓░                        
-                        ▒██▓▒      ▒▒▒▒▒▒▒░  ▒▓▓▓▓██▒░                          
-                         ▒█░▒▓▒░     ░░░░░░░▒▓▓▓███▓                            
-                          ▓░  ▒█▓▒▒░░░░░░▒▒▓████▓▓██░                           
-                        ░▓█░   ░▒▓███████████▓▓▓▓▓███▓░                         
-                       ░███▓     ░▒▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓█████░                        
-                     ░▓█████▒      ░░▒▒▓▓▓▓▓▓▓▓▓▓▓██████▓░░                     
-                ░░▒▓████▓▓███▓░    ▒░░░░▒▓▓▓▓▓▓▓▓██████████▓▓▒░░░               
-            ░▒▒▓██████▓▓█▓█████▓░   ░▒▓▓▓▓░░▓▓▓██████████████████▓▓▓▒▒░         
-     ░░▒▒▓▓▓▓██▓▓▓▓▓██▓▓█████████▓░        ▒▓████████████████████████████▓▓▒░░  
-░░▒▓▓▓▓██▓▓▓▓▓▓▓▓▓▓██▓▓▓▓█▓█████████▒░   ▒▓███████████████████████████████████▓░
-███▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓███▓▓▓▓▓▓▓█████████████████████████████████████▓▓▓▓▓▓▓▓▓▓▓████
-▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓██▓▓▓▓▓██▓███████████████████████▓██████▓███▓▓▓▓▓▓▓▓▓▓▓▓▓▓██▓▓
-█▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓███▓▓▓▓▓▓████████████████████████▓████▓▓▓▓██▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓██▓▓
-█▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓███▓▓▓▓▓▓███▓████████████████████▓▓███▓▓▓▓▓▓██▓▓▓▓▓▓▓▓▓▓▓▓▓██▓▓█
-██▓▓▓▓▓▓▓▓▓▓▓▓▓▓██████████▓██▓██████████████████▓▓█▓▓█████████▓▓▓▓▓▓▓▓▓▓▓▓▓██▓██
-███▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓███▓▓▓▓▓▓▓▓███████████████████▓▓█▓▓▓▓▓█████▓▓▓▓▓▓▓▓▓▓▓▓▓▓██████
-████▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓███▓▓▓▓▓▓▓▓████████████████▓█▓▓▓▓▓▓▓▓▓███▓▓▓▓▓▓▓▓▓▓▓▓███████
-████▓▓▓▓▓▓▓▓▓▓▓▓▓▓██▓▓▓▓▓▓▓▓▓▓▓███████████████▓██▓▓▓▓▓▓▓▓▓███▓▓▓▓▓▓▓▓▓▓▓████████`;
-
-// 눈 뜨고 입 벌림 (오른쪽/왼쪽) 간소화
-const F_OO_RIGHT = String.raw`                            
-                            ▓▒░ ░▓▓▓████▓▓▓▓▓░░                                 
-                          ░░░███████████████████▓▒▒                             
-                      ░░▓▓██▓███████████████████████▓▒                          
-                     ▒████████████████████▓▓███████████▓░                       
-                   ▒██▓██▓▓████████████████▓▓▓▓▓█████████▓░                     
-                  ▒███▓▓▓██████████████████▓▓▓▓▓▓▓▓▓███████░                    
-                 ░██████▓▓▓███▒▒▒░     ░▒███▓▓▓█▓▓██▓▓██████▓▒▒░                
-                 ▓█████▓▓██▓▒░            ▓██▓▓███▓██▓▓███████░                 
-                ▒█████▓████░              ░███▓▓███▓███▓███████░                
-               ░██████████▓                ▓███▓███████████████▓░               
-               ░██████████░                ░█████████████████████▒░             
-               ▒████████▓░  ░               ▒███████████████████▓░░             
-              ░█████████  ░▓█▓▓█▓▓▒▒░     ░▒▒████████████████████░              
-               ░▓██████▓ ░░░░░▒▒▓████▒  ▒▓███████████████████████▒              
-               ░▓▒▒░▓██▓    ░░░░░▒▒▓▒░  ░▓▓▓▒▒▒▒▓████████████████▒              
-               ▒▒▓▒▒░▓█▒   ▒▓▓▓▓░░▒▒     ▓▒▓▓▓▓░░▓███████████████░              
-               ▒▒  ▒▓▒▓░       ▒▒░       ▓▒░░░▒▒░▒▓▓████████████▓               
-               ░▓ ▒▓█░▒                  ▓▓░      ░▒▓█████████▓▓░               
-                ▓▒▒▓█▒░░                 ░▓▒       ░▓█████████▓░                
-                ░▓░░▒▒░▒          ░▒░▒▒░░▒▓█▒      ▒▓████████▓░▒                
-                 ░▓░  ▒▓           ░▒▒░▒▓██▒░     ▒▓▓▓█▓▓████░                  
-                  ░▓▓▓▓█                 ░░      ▒▓▓▓█▓▓████░                   
-                   ▒████▒          ░░▒▒▒▒▒▒░░  ░▒▓▓▓▓█████▓                     
-                    ░████▒        ░          ░░▓▓▓▓▓████▒▒                      
-                     ▒▒▒██▒       ░▓▓▓▓▓▓▓▓▒▓▓▒▓▓▓▓███▓░                        
-                        ▒██▓▒      ▒▒▒▒▒▒▒░  ▒▓▓▓▓██▒░                          
-                         ▒█░▒▓▒░     ░░░░░░░▒▓▓▓███▓                            
-                          ▓░  ▒█▓▒▒░░░░░░▒▒▓████▓▓██░                           
-                        ░▓█░   ░▒▓███████████▓▓▓▓▓███▓░                         
-                       ░███▓     ░▒▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓█████░                        
-                     ░▓█████▒      ░░▒▒▓▓▓▓▓▓▓▓▓▓▓██████▓░░                     
-                ░░▒▓████▓▓███▓░    ▒░░░░▒▓▓▓▓▓▓▓▓██████████▓▓▒░░░               
-            ░▒▒▓██████▓▓█▓█████▓░   ░▒▓▓▓▓░░▓▓▓██████████████████▓▓▓▒▒░         
-     ░░▒▒▓▓▓▓██▓▓▓▓▓██▓▓█████████▓░        ▒▓████████████████████████████▓▓▒░░  
-░░▒▓▓▓▓██▓▓▓▓▓▓▓▓▓▓██▓▓▓▓█▓█████████▒░   ▒▓███████████████████████████████████▓░
-███▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓███▓▓▓▓▓▓▓█████████████████████████████████████▓▓▓▓▓▓▓▓▓▓▓████
-▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓██▓▓▓▓▓██▓███████████████████████▓██████▓███▓▓▓▓▓▓▓▓▓▓▓▓▓▓██▓▓
-█▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓███▓▓▓▓▓▓████████████████████████▓████▓▓▓▓██▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓██▓▓
-█▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓███▓▓▓▓▓▓███▓████████████████████▓▓███▓▓▓▓▓▓██▓▓▓▓▓▓▓▓▓▓▓▓▓██▓▓█
-██▓▓▓▓▓▓▓▓▓▓▓▓▓▓██████████▓██▓██████████████████▓▓█▓▓█████████▓▓▓▓▓▓▓▓▓▓▓▓▓██▓██
-███▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓█████▓▓▓███████████████████▓▓█▓▓▓▓▓█████▓▓▓▓▓▓▓▓▓▓▓▓▓▓██████
-████▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓███▓▓▓▓▓▓▓▓████████████████▓█▓▓▓▓▓▓▓▓▓███▓▓▓▓▓▓▓▓▓▓▓▓███████
-████▓▓▓▓▓▓▓▓▓▓▓▓▓▓██▓▓▓▓▓▓▓▓▓▓▓███████████████▓██▓▓▓▓▓▓▓▓▓███▓▓▓▓▓▓▓▓▓▓▓████████`;
-
-  
-const F_OO_LEFT = String.raw`                            
-                              ▓▒░ ░▓▓▓████▓▓▓▓▓░░                                 
-                          ░░░███████████████████▓▒▒                             
-                      ░░▓▓██▓███████████████████████▓▒                          
-                     ▒████████████████████▓▓███████████▓░                       
-                   ▒██▓██▓▓████████████████▓▓▓▓▓█████████▓░                     
-                  ▒███▓▓▓██████████████████▓▓▓▓▓▓▓▓▓███████░                    
-                 ░██████▓▓▓███▒▒▒░     ░▒███▓▓▓█▓▓██▓▓██████▓▒▒░                
-                 ▓█████▓▓██▓▒░            ▓██▓▓███▓██▓▓███████░                 
-                ▒█████▓████░              ░███▓▓███▓███▓███████░                
-               ░██████████▓                ▓███▓███████████████▓░               
-               ░██████████░                ░█████████████████████▒░             
-               ▒████████▓░  ░               ▒███████████████████▓░░             
-              ░█████████  ░▓█▓▓█▓▓▒▒░     ░▒▒████████████████████░              
-               ░▓██████▓ ░░░░░▒▒▓████▒  ▒▓███████████████████████▒              
-               ░▓▒▒░▓██▓    ░░░░░▒▒▓▒░  ░▓▓▓▒▒▒▒▓████████████████▒              
-               ▒▒▓▒▒░▓█▒   ▒░░▓██▓▒▒     ▓░░▓▓██▓▓███████████████░              
-               ▒▒  ▒▓▒▓░       ▒▒░       ▓▒░░░▒▒░▒▓▓████████████▓               
-               ░▓ ▒▓█░▒                  ▓▓░      ░▒▓█████████▓▓░               
-                ▓▒▒▓█▒░░                 ░▓▒       ░▓█████████▓░                
-                ░▓░░▒▒░▒          ░▒░▒▒░░▒▓█▒      ▒▓████████▓░▒                
-                 ░▓░  ▒▓           ░▒▒░▒▓██▒░     ▒▓▓▓█▓▓████░                  
-                  ░▓▓▓▓█                 ░░      ▒▓▓▓█▓▓████░                   
-                   ▒████▒          ░░▒▒▒▒▒▒░░  ░▒▓▓▓▓█████▓                     
-                    ░████▒        ░          ░░▓▓▓▓▓████▒▒                      
-                     ▒▒▒██▒       ░▓▓▓▓▓▓▓▓▒▓▓▒▓▓▓▓███▓░                        
-                        ▒██▓▒      ▒▒▒▒▒▒▒░  ▒▓▓▓▓██▒░                          
-                         ▒█░▒▓▒░     ░░░░░░░▒▓▓▓███▓                            
-                          ▓░  ▒█▓▒▒░░░░░░▒▒▓████▓▓██░                           
-                        ░▓█░   ░▒▓███████████▓▓▓▓▓███▓░                         
-                       ░███▓     ░▒▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓█████░                        
-                     ░▓█████▒      ░░▒▒▓▓▓▓▓▓▓▓▓▓▓██████▓░░                     
-                ░░▒▓████▓▓███▓░    ▒░░░░▒▓▓▓▓▓▓▓▓██████████▓▓▒░░░               
-            ░▒▒▓██████▓▓█▓█████▓░   ░▒▓▓▓▓░░▓▓▓██████████████████▓▓▓▒▒░         
-     ░░▒▒▓▓▓▓██▓▓▓▓▓██▓▓█████████▓░        ▒▓████████████████████████████▓▓▒░░  
-░░▒▓▓▓▓██▓▓▓▓▓▓▓▓▓▓██▓▓▓▓█▓█████████▒░   ▒▓███████████████████████████████████▓░
-███▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓███▓▓▓▓▓▓▓█████████████████████████████████████▓▓▓▓▓▓▓▓▓▓▓████
-▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓██▓▓▓▓▓██▓███████████████████████▓██████▓███▓▓▓▓▓▓▓▓▓▓▓▓▓▓██▓▓
-█▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓███▓▓▓▓▓▓████████████████████████▓████▓▓▓▓██▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓██▓▓
-█▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓███▓▓▓▓▓▓███▓████████████████████▓▓███▓▓▓▓▓▓██▓▓▓▓▓▓▓▓▓▓▓▓▓██▓▓█
-██▓▓▓▓▓▓▓▓▓▓▓▓▓▓██████████▓██▓██████████████████▓▓█▓▓█████████▓▓▓▓▓▓▓▓▓▓▓▓▓██▓██
-███▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓█████▓▓▓███████████████████▓▓█▓▓▓▓▓█████▓▓▓▓▓▓▓▓▓▓▓▓▓▓██████
-████▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓███▓▓▓▓▓▓▓▓████████████████▓█▓▓▓▓▓▓▓▓▓███▓▓▓▓▓▓▓▓▓▓▓▓███████
-████▓▓▓▓▓▓▓▓▓▓▓▓▓▓██▓▓▓▓▓▓▓▓▓▓▓███████████████▓██▓▓▓▓▓▓▓▓▓███▓▓▓▓▓▓▓▓▓▓▓████████`;
-
-
-// 눈 감고 입 닫음/벌림 (정면)
+// 눈 벌림(정면/좌/우) — 생략 없이 위 정의 사용
 // 눈 감고 입 닫음/벌림 (정면)
 const F_CC_CENTER = String.raw`                            
                             ▓▒░ ░▓▓▓████▓▓▓▓▓░░    
@@ -447,7 +320,6 @@ const F_CC_CENTER = String.raw`
 ████▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓███▓▓▓▓▓▓▓▓████████████████▓█▓▓▓▓▓▓▓▓▓███▓▓▓▓▓▓▓▓▓▓▓▓███████
 ████▓▓▓▓▓▓▓▓▓▓▓▓▓▓██▓▓▓▓▓▓▓▓▓▓▓███████████████▓██▓▓▓▓▓▓▓▓▓███▓▓▓▓▓▓▓▓▓▓▓████████`;
 
-  
 const F_CO_CENTER = String.raw`                            
                               ▓▒░ ░▓▓▓████▓▓▓▓▓░░    
                           ░░░███████████████████▓▒▒                             
@@ -526,25 +398,22 @@ function normalizeFrames(frames){
 // 정규화 실행 (모든 프레임 등록)
 const FRAME_LIST = [
   F_OC_CENTER, F_OC_LEFT, F_OC_RIGHT,
-  F_OO_CENTER, F_OO_LEFT, F_OO_RIGHT,
   F_CC_CENTER, F_CO_CENTER
+  // 입 벌림 프레임이 필요하면 여기에 추가 가능 (NF_OO_* 계열)
 ];
 const { normalized: __NF__, maxRows: __MAX_ROWS__ } = normalizeFrames(FRAME_LIST);
 
-// 정규화된 프레임에 재매핑(순서 주의)
+// 재매핑(순서 주의)
 const NF_OC_CENTER = __NF__[0];
 const NF_OC_LEFT   = __NF__[1];
 const NF_OC_RIGHT  = __NF__[2];
-const NF_OO_CENTER = __NF__[3];
-const NF_OO_LEFT   = __NF__[4];
-const NF_OO_RIGHT  = __NF__[5];
-const NF_CC_CENTER = __NF__[6];
-const NF_CO_CENTER = __NF__[7];
+const NF_CC_CENTER = __NF__[3];
+const NF_CO_CENTER = __NF__[4];
 
-// 선택용 테이블
+// 선택용 테이블 (이번 버전은 정면/좌/우 + 눈감음만 사용)
 const FRAMES_OPEN_EYES = {
   mouthClosed: { left: NF_OC_LEFT, center: NF_OC_CENTER, right: NF_OC_RIGHT },
-  mouthOpen:   { left: NF_OO_LEFT, center: NF_OO_CENTER, right: NF_OO_RIGHT },
+  mouthOpen:   { left: NF_OC_LEFT, center: NF_OC_CENTER, right: NF_OC_RIGHT }, // 입 벌림 프레임을 동일 사용
 };
 const FRAMES_CLOSED_EYES = {
   mouthClosed: NF_CC_CENTER,
@@ -554,8 +423,9 @@ const FRAMES_CLOSED_EYES = {
 function lockPortraitHeight(){
   if (!portraitEl) return;
   const cs = getComputedStyle(portraitEl);
+  let fs = parseFloat(cs.fontSize);
   let lh = parseFloat(cs.lineHeight);
-  if (Number.isNaN(lh)) lh = parseFloat(cs.fontSize) * 1.2;
+  if (Number.isNaN(lh) || cs.lineHeight === 'normal') lh = fs; // 줄높이 보정
   portraitEl.style.minHeight = `${Math.ceil(lh * __MAX_ROWS__)}px`;
 }
 
@@ -830,7 +700,7 @@ function renderMessage(role, text){
 }
 
 // === OpenAI API ===
-// (⚠️ 주의: 실제 서비스에선 공개 저장소에 키를 두지 마세요)
+// (⚠️ 주의: 공개 저장소에 키 넣지 않기 — 프록시 뒤로 숨기기 권장)
 const OPENAI_KEY_B64 = 'c2stcHJvai1IY0NheVlmLVVSd25zbmpucnB6TWRuNnNJeDV0VHc0Rzc3MmFxNGZGUU56c1JsRDRHcmR1Z2NlUmhIQkRwckpSbnQxSC1ZN2FydlQzQmxia0ZKRFVIWkExMm5mSXBoSFh4cXowSHBzQU12cU9ucXZlSkxkbUxMZjBWUUtRZTNnOEJtS2J2UXNFRWtlYnF5ZWpFcGppOFAzUGIxOEE=';
 function getOpenAIKey(){
   if (!OPENAI_KEY_B64) throw new Error('API 키(base64)를 chat.js에 설정해줘.');
@@ -853,6 +723,12 @@ const SYSTEM_PROMPT =
 손녀: 김리안, 곽시아.`;
 
 async function sendMessage(userMessage){
+  // TEST_MODE면 모의 응답
+  if (TEST_MODE) {
+    await new Promise(r => setTimeout(r, 250));
+    return `…응. 듣고 있어. (${new Date().toLocaleTimeString()})`;
+  }
+
   const OPENAI_API_KEY = getOpenAIKey();
 
   // 이름 세팅
@@ -876,14 +752,20 @@ async function sendMessage(userMessage){
     max_tokens: 1000
   };
 
-  const res = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: { 'Content-Type':'application/json', 'Authorization': `Bearer ${OPENAI_API_KEY}` },
-    body: JSON.stringify(payload)
-  });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data?.error?.message || 'OpenAI API 에러');
-  return data.choices?.[0]?.message?.content ?? '';
+  try{
+    const res = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type':'application/json', 'Authorization': `Bearer ${OPENAI_API_KEY}` },
+      body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data?.error?.message || 'OpenAI API 에러');
+    return data.choices?.[0]?.message?.content ?? '…응.';
+  } catch (err){
+    console.warn('OpenAI 실패:', err);
+    // 실패해도 UI는 유지 — 짧은 대체 발화
+    return '…지금은 말수가 줄었어. 잠깐만 두고 보자.';
+  }
 }
 
 // === 이벤트 ===
@@ -938,9 +820,9 @@ window.addEventListener('DOMContentLoaded', () => {
 });
 
 /* =========================
-   ▶ 자동 비디오 창 (파일/URL → 메인 인식 소스)
-   - 페이지 로드시 자동으로 새 창을 띄움 (Safari 대응: 차단 시 화면 상단에 재시도 배너 표시)
-   - 메인과 postMessage로 상호작용
+   ▶ 자동 비디오 창 (파일/URL → 팝업에서 ASCII)
+   - 페이지 로드시 자동으로 새 창을 띄움 (Safari 대응: 차단 시 상단 재시도 배너 + 첫 클릭 재시도)
+   - 메인과 postMessage로 상호작용 (2채널 모드면 메인은 항상 웹캠 유지)
    ========================= */
 let EXTERNAL_FEED = false;
 let originalStream = null; // 복귀용
@@ -962,9 +844,11 @@ function stopCurrentStream() {
 async function useExternalVideo(url) {
   try {
     stopCurrentStream();
+    camVideo.removeAttribute('srcObject');
     camVideo.srcObject = null;
     camVideo.src = url;
     camVideo.loop = true;
+    camVideo.load();            // Safari 안정화
     await camVideo.play().catch(()=>{});
     EXTERNAL_FEED = true;
     if (camStatus) {
@@ -980,6 +864,9 @@ async function useExternalVideo(url) {
 // 웹캠 복귀
 async function restoreWebcam() {
   try { camVideo.pause(); } catch {}
+  try {
+    if (camVideo.srcObject) camVideo.srcObject.getTracks().forEach(t => t.stop());
+  } catch {}
   camVideo.removeAttribute('src');
   camVideo.src = '';
   EXTERNAL_FEED = false;
@@ -1001,8 +888,8 @@ body{ margin:0; font:14px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Ro
 .bar input[type="text"]{ flex:1; background:#0b0b0d; color:#eee; border:1px solid #2a2a33; padding:8px 10px; border-radius:10px; }
 .bar input[type="file"]{ color:#bbb; }
 .bar button{ background:#00d0ff; color:#000; border:0; padding:8px 12px; border-radius:12px; cursor:pointer; font-weight:700; }
-.wrap{ height:calc(100vh - 58px); display:grid; grid-template-columns: 0px 1fr; } /* 비디오는 숨김, 필요시 1fr 1fr 로 바꾸면 좌/우 */
-#v{ width:100%; height:100%; background:#000; object-fit:contain; display:none; } /* 필요하면 display:block 으로 */
+.wrap{ height:calc(100vh - 58px); display:grid; grid-template-columns: 0px 1fr; }
+#v{ width:100%; height:100%; background:#000; object-fit:contain; display:none; }
 #ascii{ margin:0; height:100%; overflow:auto; background:#000; white-space:pre; font-family: "SFMono-Regular",Consolas,"Liberation Mono",Menlo,monospace; font-size:8px; line-height:8px; }
 .hint{position:absolute; right:10px; bottom:10px; opacity:0.7; font-size:12px}
 </style>
@@ -1029,7 +916,7 @@ let currentBlobUrl = null;
 let timer = null;
 let cvs = null, ctx = null;
 
-// ===== ASCII 설정(원하면 숫자만 바꿔도 됨) =====
+// ===== ASCII 설정 =====
 let COLS = 96;        // 가로 문자 수 (64~120 권장)
 let FPS  = 10;        // 프레임율
 const RAMP = " .'`^\\\",:;Il!i><~+_-?][}{1)(|\\\\/*tfjrxnuvczXYUJCLQ0OZmwqpdbkhao*#MW&8%B@$";
@@ -1109,13 +996,11 @@ document.addEventListener('click', playSafe);
 </body></html>`;
 }
 
-
-// 자동 새창 열기 (Safari/팝업차단 대응)
+// 자동 새창 열기
 function openVideoWindowAuto() {
   const w = 560, h = 420;
   const left = Math.max(0, (screen.width - w) / 2);
   const top = Math.max(0, (screen.height - h) / 2);
-  // features 문자열로 전달해야 함
   const features = `width=${w},height=${h},left=${left},top=${top},resizable=yes,menubar=no,toolbar=no,location=no,status=no`;
   videoWin = window.open('', 'kim_external_video', features);
   if (!videoWin || videoWin.closed) return false;
@@ -1164,10 +1049,9 @@ window.addEventListener('message', (ev)=>{
       useExternalVideo(ev.data.url); // 단일 채널 모드에서만 메인 전환
     }
   } else if (ev.data.type === 'restoreWebcam') {
-    if (!TWO_CHANNEL_MODE) restoreWebcam(); // 2채널 모드면 원래부터 웹캠이라 아무것도 안 함
+    if (!TWO_CHANNEL_MODE) restoreWebcam();
   }
 });
-
 
 // 창이 닫혔으면 자동 재생성 시도 (집착 X, 포커스 시 1회)
 let _videoWinCheckArmed = false;
@@ -1179,16 +1063,24 @@ window.addEventListener('focus', ()=>{
   }
 });
 
-// DOM 로드시 자동 오픈 시도
+// DOM 로드시 자동 오픈 시도 + 첫 클릭 재시도
 (function bootExternalWindowAuto(){
   const tryOpen = openVideoWindowAuto();
   if (!tryOpen) {
-    // 차단됨 → 재시도 배너 표시
     showPopupRetryBanner();
-    // 다음 포커스에서 한 번 더 시도
     _videoWinCheckArmed = true;
   }
 })();
+let _firstClickTry = true;
+document.addEventListener('click', () => {
+  if (!_firstClickTry) return;
+  _firstClickTry = false;
+  if (!videoWin || videoWin.closed) {
+    const ok = openVideoWindowAuto();
+    if (!ok) showPopupRetryBanner();
+  }
+}, { capture: true, once: true });
+
 // =========================
 // ▶ 끝
 // =========================
