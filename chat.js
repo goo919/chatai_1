@@ -17,6 +17,14 @@ const TEST_MODE = true;        // ✅ 기본 true: OpenAI 없이도 바로 동�
 const chatBox   = document.getElementById('chat-box');
 const userInput = document.getElementById('user-input');
 const sendButton= document.getElementById('send-button');
+const portraitEl= document.getElementById('portrait');   // ✅ 추가
+
+// === 상태 ===  ←↓↓↓ 여기에 4줄 추가 ↓↓↓
+let conversationHistory = []; // ✅ 대화 히스토리
+let isSpeechEnabled = true;   // ✅ 비프/타자음 on/off
+let userName = '';            // ✅ 사용자 이름 캐시
+let isUserNameSet = false;    // ✅ 이름 세팅 여부
+
 
 function applyPortraitStyle() {
   const el = document.getElementById('portrait');
@@ -778,15 +786,22 @@ if (sendButton) {
 }
 
 window.addEventListener('DOMContentLoaded', () => {
+  applyPortraitStyle();          // ✅ DOM 준비 후 적용
   lockPortraitHeight();
   showPortrait();
 
-  // ✅ 폰트 로드 보장 후 재렌더 (사파리 포함)
+  // ✅ 폰트 로드 보장 후 재렌더
   document.fonts?.ready?.then(() => {
+    applyPortraitStyle();        // ✅ 폰트 로드 후 재적용(사파리 대응)
     lockPortraitHeight();
     showPortrait();
   });
-  setTimeout(() => { lockPortraitHeight(); showPortrait(); }, 0);
+
+  setTimeout(() => {
+    applyPortraitStyle();        // ✅ 0ms 지연으로 한 번 더 안전 적용
+    lockPortraitHeight();
+    showPortrait();
+  }, 0);
 
   // 인사
   const greet = '...왔구나.';
@@ -806,6 +821,7 @@ window.addEventListener('DOMContentLoaded', () => {
     startCameraAndTracking();
   }
 });
+
 
 /* =========================
    ▶ 자동 비디오 창 (파일/URL → 팝업에서 ASCII)
