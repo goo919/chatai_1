@@ -5,19 +5,16 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>RIP - KIM</title>
 
-  <!-- 라이브러리 -->
-  <script defer src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
-
   <!-- 메타 -->
   <meta name="theme-color" content="#000000">
   <link rel="icon" href="/favicon.png">
 
-  <!-- 폰트(선택) -->
+  <!-- 폰트 프리커넥트 (선택) -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 
-  <!-- 외부 CSS (충돌 방지: 모든 스타일은 여기서만) -->
-  <link rel="stylesheet" href="styles.css?v=3" />
+  <!-- 외부 CSS -->
+  <link rel="stylesheet" href="styles.css?v=4" />
 </head>
 <body>
   <div id="app">
@@ -33,13 +30,13 @@
       <!-- 입력 박스 -->
       <section id="user-box" class="box box-input">
         <input id="user-input" type="text" placeholder="고인에게 말을 걸어주세요" autocomplete="off" />
-        <button id="send-button" class="btn">SEND</button>
-        <!-- 팝업 차단 우회 수동 버튼 -->
-        <button id="open-video" class="btn" type="button" title="팝업 차단 시 눌러서 열기">비디오창 열기</button>
+        <button id="send-button" class="btn" type="button">SEND</button>
+        <!-- ⚠️ ‘비디오창 열기’ 버튼 제거 (자동 팝업만 사용) -->
       </section>
     </main>
   </div>
 
-  <script src="chat.js?v=3"></script>
+  <!-- 스크립트: face-api는 필요 시 chat.js에서 동적 로드 -->
+  <script src="chat.js?v=4"></script>
 </body>
 </html>
