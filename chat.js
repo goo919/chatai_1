@@ -1047,6 +1047,32 @@ document.addEventListener('click', () => {
   }
 }, { capture: true, once: true });
 
+// === Version Badge (좌측 상단) ===
+(function(){
+  const ver = "RIP-KIM v4"; // 버전 이름 바꾸면 됨
+  const badge = document.createElement("div");
+  badge.textContent = ver;
+  Object.assign(badge.style, {
+    position: "fixed",
+    top: "8px",
+    left: "8px",
+    padding: "4px 8px",
+    fontSize: "11px",
+    fontFamily: "monospace",
+    color: "#00fff0",
+    background: "rgba(0,0,0,0.55)",
+    border: "1px solid rgba(0,255,255,0.4)",
+    borderRadius: "6px",
+    zIndex: 999999,
+    opacity: 0.75,
+    pointerEvents: "none"
+  });
+  document.addEventListener("DOMContentLoaded", () => {
+    document.body.appendChild(badge);
+  });
+})();
+
+
 // =========================
 // ▶ 끝
 // =========================
