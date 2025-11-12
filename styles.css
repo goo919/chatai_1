@@ -1,3 +1,4 @@
+/* styles.css */
 @font-face {
   font-family: 'DungGeunMo';
   src: url('./fonts/DungGeunMo.woff2') format('woff2');
@@ -34,6 +35,25 @@ html, body {
   gap: 16px;
   justify-items: center;
   width: min(720px, 92vw);
+}
+
+/* 상단: 카메라 + 초상 배치 */
+#top-row {
+  width: 100%;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 12px;
+}
+
+/* 카메라 프리뷰 (좌측, 작게) */
+#webcam-preview {
+  width: 140px;
+  height: 105px;
+  object-fit: cover;
+  border: 2px solid var(--border);
+  background: #111;
+  display: block;
 }
 
 /* (이미지 전용) — 지금은 <pre>를 쓰므로 적용되지 않음 */
@@ -123,19 +143,29 @@ img#portrait {
   #stage { gap: 12px; }
   .box { padding: 12px; }
   #user-input, .btn { padding: 9px 12px; }
+
+  #top-row {
+    flex-direction: row;
+    align-items: flex-start;
+  }
+
+  #webcam-preview {
+    width: 120px;
+    height: 90px;
+  }
 }
 
 /* ====== 초상 ASCII 전용 ====== */
 /* 테두리(선) 제거! */
 #portrait {
-  border: none;          /* ✅ 선 제거 */
+  border: none;
   background: var(--black);
   color: var(--white);
-  padding: 0;            /* 박스 느낌 없애려면 0 */
+  padding: 0;
   border-radius: 0;
 
   display: block;
-  margin: 0 auto;        /* 중앙 배치 */
+  margin: 0 auto;
   max-width: 100%;
 
   image-rendering: auto;
@@ -149,7 +179,7 @@ pre#portrait {
   max-height: none;
   width: auto;
   height: auto;
-  display: inline-block; /* 내용 폭에 맞춤 */
+  display: inline-block;
   text-align: left;
 
   font-family: 'DungGeunMo', monospace;
