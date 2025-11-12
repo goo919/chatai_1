@@ -46,7 +46,14 @@ html, body {
   gap: 12px;
 }
 
-/* 카메라 프리뷰 (좌측, 작게) */
+/* 카메라 패널: 프리뷰 + 상태 텍스트 */
+#camera-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+}
+
 #webcam-preview {
   width: 140px;
   height: 105px;
@@ -56,13 +63,10 @@ html, body {
   display: block;
 }
 
-/* (이미지 전용) — 지금은 <pre>를 쓰므로 적용되지 않음 */
-img#portrait {
-  display: block;
-  width: 250px;
-  height: 250px;
-  image-rendering: pixelated;
-  filter: grayscale(1) contrast(1.05);
+#face-status {
+  font-size: 10px;
+  opacity: 0.8;
+  white-space: nowrap;
 }
 
 /* 공용 박스 (대화/입력) */
@@ -152,6 +156,10 @@ img#portrait {
   #webcam-preview {
     width: 120px;
     height: 90px;
+  }
+
+  #face-status {
+    font-size: 9px;
   }
 }
 
