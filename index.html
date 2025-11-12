@@ -30,27 +30,31 @@
   <!-- PWA / 브라우저 꾸미기 (선택) -->
   <meta name="theme-color" content="#000000">
   <link rel="icon" href="/favicon.png">
-  <!-- <link rel="manifest" href="/manifest.json"> -->
 
   <!-- Pixel-ish font -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet" />
 
-  <link rel="stylesheet" href="styles.css?v=3" />
+  <link rel="stylesheet" href="styles.css?v=4" />
 </head>
 <body>
   <div id="app">
     <main id="stage">
 
-      <!-- 상단: 좌측 카메라 프리뷰 + 우측 ASCII 초상 -->
+      <!-- 상단: 좌측 카메라 패널(프리뷰 + 상태) + 우측 ASCII 초상 -->
       <section id="top-row">
-        <video
-          id="webcam-preview"
-          autoplay
-          playsinline
-          muted
-        ></video>
+        <div id="camera-panel">
+          <video
+            id="webcam-preview"
+            autoplay
+            playsinline
+            muted
+          ></video>
+          <div id="face-status" aria-live="polite">
+            eyes: center / 얼굴 인식 준비중...
+          </div>
+        </div>
 
         <!-- 중앙 초상: ASCII 전용 -->
         <pre id="portrait"></pre>
@@ -70,6 +74,6 @@
   </div>
 
   <!-- 캐시 무효화를 위해 쿼리스트링 버전 붙임 -->
-  <script src="chat.js?v=3"></script>
+  <script src="chat.js?v=4"></script>
 </body>
 </html>
