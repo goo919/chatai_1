@@ -5,21 +5,43 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>RIP - KIM</title>
 
-  <!-- 메타 -->
+  <!-- 기본 메타 -->
+  <meta name="title" content="RIP - KIM">
+  <meta name="description" content="고인과 대화하는 미니멀 챗 인터페이스.">
+
+  <!-- Open Graph / Discord / Kakao -->
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://YOUR-DOMAIN.example.com/">
+  <meta property="og:title" content="RIP - KIM">
+  <meta property="og:site_name" content="RIP - KIM">
+  <meta property="og:description" content="고인과 대화하는 미니멀 챗 인터페이스.">
+  <meta property="og:image" content="https://YOUR-DOMAIN.example.com/og-image.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:url" content="https://YOUR-DOMAIN.example.com/">
+  <meta name="twitter:title" content="RIP - KIM">
+  <meta name="twitter:description" content="고인과 대화하는 미니멀 챗 인터페이스.">
+  <meta name="twitter:image" content="https://YOUR-DOMAIN.example.com/og-image.png">
+
+  <!-- PWA / 브라우저 꾸미기 (선택) -->
   <meta name="theme-color" content="#000000">
   <link rel="icon" href="/favicon.png">
+  <!-- <link rel="manifest" href="/manifest.json"> -->
 
-  <!-- 폰트 프리커넥트 (선택) -->
+  <!-- Pixel-ish font -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet" />
 
-  <!-- 외부 CSS -->
-  <link rel="stylesheet" href="styles.css?v=4" />
+  <link rel="stylesheet" href="styles.css?v=2" />
 </head>
 <body>
   <div id="app">
     <main id="stage">
-      <!-- 중앙 초상: 네가 올린 ASCII 폰트로만 렌더 -->
+      <!-- 중앙 초상: ASCII 전용 -->
       <pre id="portrait"></pre>
 
       <!-- AI 대사 박스 -->
@@ -30,13 +52,12 @@
       <!-- 입력 박스 -->
       <section id="user-box" class="box box-input">
         <input id="user-input" type="text" placeholder="고인에게 말을 걸어주세요" autocomplete="off" />
-        <button id="send-button" class="btn" type="button">SEND</button>
-        <!-- ⚠️ ‘비디오창 열기’ 버튼 제거 (자동 팝업만 사용) -->
+        <button id="send-button" class="btn">SEND</button>
       </section>
     </main>
   </div>
 
-<script src="chat.js?v=5.0.0" defer></script>
-
+  <!-- 캐시 무효화를 위해 쿼리스트링 버전 붙임 -->
+  <script src="chat.js?v=2"></script>
 </body>
 </html>
