@@ -1,3 +1,4 @@
+<!-- index.html -->
 <!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -36,13 +37,24 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet" />
 
-  <link rel="stylesheet" href="styles.css?v=2" />
+  <link rel="stylesheet" href="styles.css?v=3" />
 </head>
 <body>
   <div id="app">
     <main id="stage">
-      <!-- 중앙 초상: ASCII 전용 -->
-      <pre id="portrait"></pre>
+
+      <!-- 상단: 좌측 카메라 프리뷰 + 우측 ASCII 초상 -->
+      <section id="top-row">
+        <video
+          id="webcam-preview"
+          autoplay
+          playsinline
+          muted
+        ></video>
+
+        <!-- 중앙 초상: ASCII 전용 -->
+        <pre id="portrait"></pre>
+      </section>
 
       <!-- AI 대사 박스 -->
       <section id="ai-box" class="box" aria-live="polite">
@@ -58,6 +70,6 @@
   </div>
 
   <!-- 캐시 무효화를 위해 쿼리스트링 버전 붙임 -->
-  <script src="chat.js?v=2"></script>
+  <script src="chat.js?v=3"></script>
 </body>
 </html>
