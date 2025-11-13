@@ -1,18 +1,9 @@
-// =========================
-//  RIP-KIM chat.js (face tracking + blink, FaceDetector + face-api.js fallback)
-//  - 좌측 상단 카메라 미리보기
-//  - FaceDetector 지원: 그걸로 얼굴 좌우 인식
-//  - 미지원(예: Safari): face-api.js 자동 로딩 후 TinyFaceDetector 사용
-//  - 여러 명일 때: 가장 큰 얼굴 기준
-//  - 랜덤 눈 깜박임 + 발화 시 입 모양 토글
-// =========================
-
 // === DOM ===
 const chatBox   = document.getElementById('chat-box');
 const userInput = document.getElementById('user-input');
 const sendButton= document.getElementById('send-button');
 
-// ▲ 초상 ASCII 출력 엘리먼트
+// ▲ 추가: 초상 ASCII를 표시할 엘리먼트
 const portraitEl = document.getElementById('portrait');
 
 // === 상태 ===
@@ -24,8 +15,10 @@ let isUserNameSet = false;
 // === Hangul 모음 판별 유틸 (전역) ===
 const HANGUL_BASE = 0xAC00;
 const HANGUL_LAST = 0xD7A3;
-// 중성 인덱스 0..20: ㅏ,ㅐ,ㅑ,ㅒ,ㅓ,ㅔ,ㅕ,ㅖ,ㅗ,ㅘ,ㅙ,ㅚ,ㅛ,ㅜ,ㅝ,ㅞ,ㅟ,ㅠ,ㅡ,ㅢ,ㅣ
-const OPEN_JUNGSEONG = new Set([8,9,10,11,12,13,14,15,16,17,18,20]); 
+const OPEN_JUNGSEONG = new Set([
+  8,9,10,11,12,13,14,15,16,17,18,20
+]); 
+// ㅗ,ㅘ,ㅙ,ㅚ,ㅛ,ㅜ,ㅝ,ㅞ,ㅟ,ㅠ,ㅡ,ㅣ
 
 function isLatinVowel(ch) {
   return /[AEIOUaeiou]/.test(ch);
@@ -70,7 +63,7 @@ function playBeep(freq = 440) {
   osc.stop(ctx.currentTime + 0.12);
 }
 
-// === 안전한 타이핑 효과 (비프 동기 콜백 지원) ===
+// === 안전한 타이핑 효과 ===
 function typeWriter(element, text, delay = 16, onChar = null, onDone = null) {
   element.textContent = '';
   let i = 0;
@@ -131,9 +124,8 @@ function pushHistory(role, content) {
   }
 }
 
-// =========================
-//   ASCII 프레임들 (네가 만든 건희)
-// =========================
+// === ★ ASCII 프레임: 눈 방향 + 입 열림 + 깜박임 ===
+// 너가 준 프레임들을 그대로 사용 (raw literal)
 
 // 눈 뜨고 입 닫음 (정면)
 const FRAME_OC_CENTER = String.raw`                            ▓▒░ ░▓▓▓████▓▓▓▓▓░░    
@@ -406,7 +398,7 @@ const FRAME_OO_LEFT = String.raw`                            ▓▒░ ░▓▓
 ████▓▓▓▓▓▓▓▓▓▓▓▓▓▓██▓▓▓▓▓▓▓▓▓▓▓███████████████▓██▓▓▓▓▓▓▓▓▓███▓▓▓▓▓▓▓▓▓▓▓████████`;
 
 // 눈 감고 입 닫음
-const FRAME_XC = String.raw`                            ▓▒░ ░▓▓▓████▓▓▓▓▓░░    
+const FRAME_CC = String.raw`                            ▓▒░ ░▓▓▓████▓▓▓▓▓░░    
                           ░░░███████████████████▓▒▒                             
                       ░░▓▓██▓███████████████████████▓▒                          
                      ▒████████████████████▓▓███████████▓░                       
@@ -451,7 +443,7 @@ const FRAME_XC = String.raw`                            ▓▒░ ░▓▓▓�
 ████▓▓▓▓▓▓▓▓▓▓▓▓▓▓██▓▓▓▓▓▓▓▓▓▓▓███████████████▓██▓▓▓▓▓▓▓▓▓███▓▓▓▓▓▓▓▓▓▓▓████████`;
 
 // 눈 감고 입 벌림
-const FRAME_XO = String.raw`                            ▓▒░ ░▓▓▓████▓▓▓▓▓░░    
+const FRAME_CO = String.raw`                            ▓▒░ ░▓▓▓████▓▓▓▓▓░░    
                           ░░░███████████████████▓▒▒                             
                       ░░▓▓██▓███████████████████████▓▒                          
                      ▒████████████████████▓▓███████████▓░                       
@@ -510,6 +502,7 @@ function getMaxColsRows(frames) {
   }
   return { maxCols, maxRows };
 }
+
 function normalizeFrames(frames) {
   const { maxCols, maxRows } = getMaxColsRows(frames);
   const normalized = frames.map(f => {
@@ -525,30 +518,31 @@ function normalizeFrames(frames) {
   return { normalized, maxRows };
 }
 
-// 모든 프레임 정규화
-const RAW_FRAMES = [
+// 정규화
+const {
+  normalized: NF,
+  maxRows: PORTRAIT_ROWS
+} = normalizeFrames([
   FRAME_OC_CENTER, FRAME_OC_RIGHT, FRAME_OC_LEFT,
   FRAME_OO_CENTER, FRAME_OO_RIGHT, FRAME_OO_LEFT,
-  FRAME_XC, FRAME_XO
-];
-const { normalized: NF, maxRows: PORTRAIT_ROWS } = normalizeFrames(RAW_FRAMES);
+  FRAME_CC, FRAME_CO
+]);
 
-// 정규화된 프레임 매핑
-const F_OC_CENTER = NF[0];
-const F_OC_RIGHT  = NF[1];
-const F_OC_LEFT   = NF[2];
-const F_OO_CENTER = NF[3];
-const F_OO_RIGHT  = NF[4];
-const F_OO_LEFT   = NF[5];
-const F_XC        = NF[6];
-const F_XO        = NF[7];
+const FRAME_OC_C = NF[0];
+const FRAME_OC_R = NF[1];
+const FRAME_OC_L = NF[2];
+const FRAME_OO_C = NF[3];
+const FRAME_OO_R = NF[4];
+const FRAME_OO_L = NF[5];
+const FRAME_CC_N = NF[6];
+const FRAME_CO_N = NF[7];
 
-// === 얼굴/입 상태 ===
-let currentEyeDir = 'CENTER';  // 'LEFT' | 'CENTER' | 'RIGHT'
-let isBlinking    = false;
-let mouthOpen     = false;
-let isTalking     = false;
+// === 초상 상태 ===
+let eyeDirection = 'center'; // 'left'|'center'|'right'
+let mouthOpen = false;
+let eyesClosed = false;
 
+// 초상 높이 고정
 function lockPortraitHeight() {
   if (!portraitEl) return;
   const cs = getComputedStyle(portraitEl);
@@ -557,63 +551,61 @@ function lockPortraitHeight() {
   portraitEl.style.minHeight = `${Math.ceil(lh * PORTRAIT_ROWS)}px`;
 }
 
-function getCurrentFrame() {
-  if (isBlinking) {
-    return mouthOpen ? F_XO : F_XC;
-  }
-  if (mouthOpen) {
-    if (currentEyeDir === 'LEFT')  return F_OO_LEFT;
-    if (currentEyeDir === 'RIGHT') return F_OO_RIGHT;
-    return F_OO_CENTER;
-  } else {
-    if (currentEyeDir === 'LEFT')  return F_OC_LEFT;
-    if (currentEyeDir === 'RIGHT') return F_OC_RIGHT;
-    return F_OC_CENTER;
-  }
-}
-
 function showFrame(txt) {
   if (!portraitEl) return;
   portraitEl.textContent = txt;
 }
 
+// 상태 기반으로 프레임 선택
 function updatePortrait() {
-  showFrame(getCurrentFrame());
+  // 눈 감은 상태 우선
+  if (eyesClosed) {
+    showFrame(mouthOpen ? FRAME_CO_N : FRAME_CC_N);
+    return;
+  }
+
+  if (mouthOpen) {
+    if (eyeDirection === 'left')      showFrame(FRAME_OO_L);
+    else if (eyeDirection === 'right')showFrame(FRAME_OO_R);
+    else                              showFrame(FRAME_OO_C);
+  } else {
+    if (eyeDirection === 'left')      showFrame(FRAME_OC_L);
+    else if (eyeDirection === 'right')showFrame(FRAME_OC_R);
+    else                              showFrame(FRAME_OC_C);
+  }
 }
 
-// === 랜덤 눈 깜박임 ===
-function scheduleBlink() {
-  const delay = 2000 + Math.random() * 3000;
-  setTimeout(() => {
-    isBlinking = true;
-    updatePortrait();
-    setTimeout(() => {
-      isBlinking = false;
-      updatePortrait();
-      scheduleBlink();
-    }, 120);
-  }, delay);
-}
-
-// === 말하는 동안: 비프에 맞춰 입 모양 토글 ===
+// 말 시작/끝에서 입 상태 리셋
 function resetMouth() {
   mouthOpen = false;
-  isTalking = false;
+  eyesClosed = false;
   updatePortrait();
 }
 
+// 비프와 동기화된 입 모양 토글 (모음에서만)
 function onBeepCharToggle(ch) {
   if (!isVowelChar(ch)) return;
   mouthOpen = !mouthOpen;
-  isTalking = true;
   updatePortrait();
 }
 
-function speakWithAnimation(targetEl, text, maxLength = 160, delay = 16) {
-  isTalking = true;
-  mouthOpen = false;
-  updatePortrait();
+// 랜덤 눈 깜박임
+function scheduleBlink() {
+  const delay = 1200 + Math.random() * 4000; // 1.2~5.2초
+  setTimeout(() => {
+    eyesClosed = true;
+    updatePortrait();
+    setTimeout(() => {
+      eyesClosed = false;
+      updatePortrait();
+      scheduleBlink();
+    }, 120); // 깜박이는 시간
+  }, delay);
+}
 
+// 말하는 동안: 비프+입 모양, 끝나면 입 닫음
+function speakWithAnimation(targetEl, text, maxLength = 160, delay = 16) {
+  resetMouth();
   splitAndTypeWriter(
     targetEl,
     text,
@@ -621,7 +613,6 @@ function speakWithAnimation(targetEl, text, maxLength = 160, delay = 16) {
     delay,
     onBeepCharToggle,
     () => {
-      isTalking = false;
       mouthOpen = false;
       updatePortrait();
     }
@@ -646,235 +637,7 @@ function renderMessage(role, text) {
   chatBox.scrollTop = chatBox.scrollHeight;
 }
 
-// =========================
-//   카메라 + 얼굴 인식 UI
-// =========================
-
-let videoEl = null;
-let faceStatusEl = null;
-let dirStatusEl = null;
-let faceDetector = null;
-
-let useFaceApi = false;
-let faceApiLoaded = false;
-
-// 🔧 face-api 모델 경로 (GitHub에 맞게 수정 가능)
-// 예: 사이트 루트에 /models 폴더 있으면 './models'
-const FACEAPI_MODEL_URL = './models';
-const FACEAPI_CDN = 'https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js';
-
-function setupCameraUI() {
-  const box = document.createElement('div');
-  box.id = 'camera-box';
-  Object.assign(box.style, {
-    position: 'fixed',
-    top: '10px',
-    left: '10px',
-    width: '180px',
-    padding: '4px',
-    background: 'rgba(0,0,0,0.7)',
-    border: '1px solid #ffffff',
-    color: '#ffffff',
-    fontSize: '10px',
-    fontFamily: 'DungGeunMo, monospace',
-    zIndex: '1000'
-  });
-
-  const video = document.createElement('video');
-  video.id = 'camera-video';
-  Object.assign(video.style, {
-    width: '100%',
-    height: 'auto',
-    display: 'block',
-    background: '#000'
-  });
-  video.autoplay = true;
-  video.muted = true;
-  video.playsInline = true;
-
-  const statusWrap = document.createElement('div');
-  statusWrap.style.marginTop = '4px';
-
-  const faceLine = document.createElement('div');
-  const dirLine  = document.createElement('div');
-
-  faceLine.id = 'face-status';
-  dirLine.id   = 'eye-status';
-
-  statusWrap.appendChild(faceLine);
-  statusWrap.appendChild(dirLine);
-
-  box.appendChild(video);
-  box.appendChild(statusWrap);
-
-  document.body.appendChild(box);
-
-  videoEl = video;
-  faceStatusEl = faceLine;
-  dirStatusEl = dirLine;
-
-  faceStatusEl.textContent = '카메라 준비중...';
-  dirStatusEl.textContent = '';
-
-  return { video, faceLine, dirLine };
-}
-
-function loadScript(src) {
-  return new Promise((resolve, reject) => {
-    const s = document.createElement('script');
-    s.src = src;
-    s.async = true;
-    s.onload = () => resolve();
-    s.onerror = () => reject(new Error('스크립트 로드 실패: ' + src));
-    document.head.appendChild(s);
-  });
-}
-
-async function ensureFaceApiLoaded() {
-  if (faceApiLoaded) return;
-  faceStatusEl.textContent = 'face-api.js 로딩중...';
-  await loadScript(FACEAPI_CDN);
-  if (!window.faceapi) throw new Error('face-api.js 로드 실패');
-  await window.faceapi.nets.tinyFaceDetector.loadFromUri(FACEAPI_MODEL_URL);
-  faceApiLoaded = true;
-}
-
-async function initCameraAndDetection() {
-  setupCameraUI();
-
-  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-    faceStatusEl.textContent = '카메라 인식 미지원';
-    dirStatusEl.textContent = 'center';
-    currentEyeDir = 'CENTER';
-    updatePortrait();
-    return;
-  }
-
-  try {
-    const stream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: 'user' },
-      audio: false
-    });
-    videoEl.srcObject = stream;
-
-    await new Promise(res => {
-      videoEl.onloadedmetadata = () => {
-        videoEl.play();
-        res();
-      };
-    });
-
-    if ('FaceDetector' in window) {
-      // 1순위: 브라우저 내장 FaceDetector
-      faceDetector = new FaceDetector({ fastMode: true, maxDetectedFaces: 5 });
-      useFaceApi = false;
-      faceStatusEl.textContent = '얼굴인식중 (FaceDetector)';
-      startFaceLoop();
-    } else {
-      // 2순위: face-api.js 로 폴백
-      useFaceApi = true;
-      try {
-        await ensureFaceApiLoaded();
-        faceStatusEl.textContent = '얼굴인식중 (face-api)';
-        startFaceLoop();
-      } catch (e) {
-        console.error(e);
-        faceStatusEl.textContent = '얼굴 인식 미지원 (face-api 로딩 실패)';
-        dirStatusEl.textContent = 'center';
-        currentEyeDir = 'CENTER';
-        updatePortrait();
-      }
-    }
-  } catch (err) {
-    console.error(err);
-    faceStatusEl.textContent = '카메라 접근 거부';
-    dirStatusEl.textContent = '';
-  }
-}
-
-function startFaceLoop() {
-  async function loop() {
-    if (!videoEl) {
-      requestAnimationFrame(loop);
-      return;
-    }
-    if (videoEl.readyState < 2) {
-      requestAnimationFrame(loop);
-      return;
-    }
-
-    try {
-      let faces = [];
-
-      if (!useFaceApi && faceDetector) {
-        // 내장 FaceDetector
-        const detected = await faceDetector.detect(videoEl);
-        faces = (detected || []).map(f => ({
-          x: f.boundingBox.x,
-          y: f.boundingBox.y,
-          width: f.boundingBox.width,
-          height: f.boundingBox.height
-        }));
-      } else if (useFaceApi && window.faceapi) {
-        // face-api.js TinyFaceDetector
-        const detections = await window.faceapi.detectAllFaces(
-          videoEl,
-          new window.faceapi.TinyFaceDetectorOptions()
-        );
-        faces = (detections || []).map(d => ({
-          x: d.box.x,
-          y: d.box.y,
-          width: d.box.width,
-          height: d.box.height
-        }));
-      }
-
-      if (!faces || faces.length === 0) {
-        faceStatusEl.textContent = '인식불가';
-        dirStatusEl.textContent = 'center';
-        currentEyeDir = 'CENTER';
-        updatePortrait();
-      } else {
-        // 가장 큰 얼굴(= 가장 가까운 사람) 선택
-        let best = faces[0];
-        if (faces.length > 1) {
-          best = faces.reduce((a, b) => {
-            const aa = a.width * a.height;
-            const bb = b.width * b.height;
-            return bb > aa ? b : a;
-          });
-        }
-
-        const cx  = best.x + best.width / 2;
-        const vw  = videoEl.videoWidth || videoEl.clientWidth || 1;
-        const rel = cx / vw;
-
-        let dir = 'CENTER';
-        if (rel < 0.4) dir = 'LEFT';
-        else if (rel > 0.6) dir = 'RIGHT';
-
-        currentEyeDir = dir;
-        faceStatusEl.textContent = '얼굴 감지됨';
-        dirStatusEl.textContent  = dir.toLowerCase(); // left / center / right
-
-        updatePortrait();
-      }
-    } catch (err) {
-      console.error(err);
-      faceStatusEl.textContent = '인식 에러';
-    }
-
-    setTimeout(() => requestAnimationFrame(loop), 80);
-  }
-
-  requestAnimationFrame(loop);
-}
-
-// =========================
-//   OpenAI API
-// =========================
-
-// ⚠️ base64 인코딩된 API Key (이 부분은 네가 쓰던 값 그대로 두면 됨)
+// === OpenAI API ===
 const OPENAI_KEY_B64 = 'c2stcHJvai1IY0NheVlmLVVSd25zbmpucnB6TWRuNnNJeDV0VHc0Rzc3MmFxNGZGUU56c1JsRDRHcmR1Z2NlUmhIQkRwckpSbnQxSC1ZN2FydlQzQmxia0ZKRFVIWkExMm5mSXBoSFh4cXowSHBzQU12cU9ucXZlSkxkbUxMZjBWUUtRZTNnOEJtS2J2UXNFRWtlYnF5ZWpFcGppOFAzUGIxOEE=';  
 
 function getOpenAIKey() {
@@ -900,6 +663,7 @@ const SYSTEM_PROMPT = `너는 김건희라고 불리며, 2132년의 세계에 �
 async function sendMessage(userMessage) {
   const OPENAI_API_KEY = getOpenAIKey();
 
+  // 이름 세팅
   if (!isUserNameSet) {
     const m = userMessage.match(/(?:내\s*이름은|제\s*이름은|저는|난)\s*([^\s.,!?~"'()]+)\s*$/u);
     if (m) {
@@ -949,6 +713,155 @@ async function sendMessage(userMessage) {
   }
 }
 
+// === 카메라 + face-api.js 얼굴 추적 ===
+let faceTrackInterval = null;
+
+function createCameraUI() {
+  const container = document.createElement('div');
+  container.id = 'camera-container';
+  Object.assign(container.style, {
+    position: 'fixed',
+    top: '8px',
+    left: '8px',
+    width: '180px',
+    padding: '6px',
+    background: 'rgba(0,0,0,0.85)',
+    border: '2px solid #fff',
+    zIndex: '9999',
+    fontSize: '10px',
+    lineHeight: '1.3',
+    color: '#fff'
+  });
+
+  const video = document.createElement('video');
+  video.id = 'cam-video';
+  video.autoplay = true;
+  video.muted = true;
+  video.playsInline = true;
+  Object.assign(video.style, {
+    width: '100%',
+    height: 'auto',
+    display: 'block',
+    background: '#000'
+  });
+
+  const status = document.createElement('pre');
+  status.id = 'face-status';
+  Object.assign(status.style, {
+    marginTop: '4px',
+    whiteSpace: 'pre-wrap'
+  });
+  status.textContent = '카메라 준비중...';
+
+  container.appendChild(video);
+  container.appendChild(status);
+  document.body.appendChild(container);
+}
+
+function updateFaceStatus(line1, gazeText) {
+  const status = document.getElementById('face-status');
+  if (!status) return;
+  status.textContent = line1 + (gazeText ? `\n${gazeText}` : '');
+}
+
+async function initCameraAndFaceApi() {
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    updateFaceStatus('카메라 인식 미지원 (브라우저)', '');
+    return;
+  }
+
+  const video = document.getElementById('cam-video');
+  if (!video) return;
+
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'user' },
+      audio: false
+    });
+    video.srcObject = stream;
+
+    await new Promise(resolve => {
+      video.onloadedmetadata = () => {
+        video.play().then(resolve).catch(resolve);
+      };
+    });
+
+    updateFaceStatus('카메라 준비됨', 'center');
+
+    // face-api.js 존재 확인
+    if (!window.faceapi) {
+      updateFaceStatus('얼굴 인식 미지원 (face-api 없음)', 'center');
+      return;
+    }
+
+    updateFaceStatus('얼굴 모델 로딩중...', 'center');
+    try {
+      // /models 폴더에서 tiny_face_detector 모델 로딩해야 함
+      await faceapi.nets.tinyFaceDetector.loadFromUri('./models');
+    } catch (e) {
+      updateFaceStatus('얼굴 인식 미지원 (모델 로딩 실패)', 'center');
+      console.error(e);
+      return;
+    }
+
+    updateFaceStatus('얼굴 인식 준비됨', 'center');
+    startFaceTracking(video);
+  } catch (err) {
+    console.error(err);
+    updateFaceStatus('카메라 접근 실패', '');
+  }
+}
+
+function startFaceTracking(video) {
+  if (faceTrackInterval) clearInterval(faceTrackInterval);
+
+  const options = new faceapi.TinyFaceDetectorOptions({
+    inputSize: 256,
+    scoreThreshold: 0.4
+  });
+
+  faceTrackInterval = setInterval(async () => {
+    if (video.readyState < 2) return;
+
+    try {
+      const detections = await faceapi.detectAllFaces(video, options);
+      if (!detections || detections.length === 0) {
+        eyeDirection = 'center';
+        updatePortrait();
+        updateFaceStatus('얼굴 없음', 'center');
+        return;
+      }
+
+      // 여러 명일 경우 가장 큰 얼굴(가까운 사람) 사용
+      let best = detections[0];
+      let bestArea = best.box.width * best.box.height;
+      for (let i = 1; i < detections.length; i++) {
+        const d = detections[i];
+        const area = d.box.width * d.box.height;
+        if (area > bestArea) {
+          best = d;
+          bestArea = area;
+        }
+      }
+
+      const box = best.box;
+      const centerX = box.x + box.width / 2;
+      const ratio = centerX / video.videoWidth; // 0~1
+
+      let dir = 'center';
+      if (ratio < 0.4) dir = 'left';
+      else if (ratio > 0.6) dir = 'right';
+
+      eyeDirection = dir;
+      updatePortrait();
+      updateFaceStatus('얼굴 인식중', dir);
+    } catch (e) {
+      console.error(e);
+      updateFaceStatus('얼굴 인식 오류', '');
+    }
+  }, 150);
+}
+
 // === 이벤트 ===
 sendButton.addEventListener('click', async () => {
   const message = userInput.value.trim();
@@ -976,25 +889,28 @@ sendButton.addEventListener('click', async () => {
 });
 
 window.addEventListener('DOMContentLoaded', () => {
-  lockPortraitHeight();
+  // 카메라 UI (좌측 상단)
+  createCameraUI();
+  initCameraAndFaceApi();
 
-  currentEyeDir = 'CENTER';
-  isBlinking = false;
+  // 초상 높이 고정 + 기본 상태
+  lockPortraitHeight();
+  eyeDirection = 'center';
   mouthOpen = false;
-  isTalking = false;
+  eyesClosed = false;
   updatePortrait();
 
-  scheduleBlink();
-  initCameraAndDetection();
-
+  // 첫 인사
   const greet = '...왔구나.';
   const p = document.createElement('p');
   p.className = 'ai';
   const span = document.createElement('span');
   p.appendChild(span);
   chatBox.appendChild(p);
-
   speakWithAnimation(span, `김건희: ${greet}`, 160, 16);
+
+  // 눈 깜박임 시작
+  scheduleBlink();
 
   userInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') sendButton.click();
