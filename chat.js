@@ -1023,10 +1023,39 @@ window.addEventListener('DOMContentLoaded', () => {
   }
 });
 
+// =========================
+// ▶ GitHub /videos 폴더용 설정
+// =========================
+
+// 여기에 videos 폴더에 넣은 실제 파일 이름들을 적어줘.
+// (예: /videos/intro.mp4, /videos/scene1.mp4 ...)
+const VIDEO_FILES = [
+  'video1.mp4',
+  'video2.mp4',
+  'video3.mp4',
+];
+
+// 현재 페이지 기준으로 /videos/ 경로 만들기
+function getVideosBaseUrl() {
+  const { origin, pathname } = window.location;
+  // 마지막 세그먼트(index.html 등)를 떼고 뒤에 'videos/' 붙임
+  const basePath = pathname.replace(/\/[^\/]*$/, '/');
+  return origin + basePath + 'videos/';
+}
+
+// 랜덤 영상 하나 뽑기
+function getRandomVideoUrl() {
+  if (!VIDEO_FILES.length) return null;
+  const base = getVideosBaseUrl();
+  const name = VIDEO_FILES[Math.floor(Math.random() * VIDEO_FILES.length)];
+  return base + encodeURIComponent(name);
+}
+
+
 /* =========================
-   ▶ 자동 비디오 창 (파일/URL → 메인 인식 소스)
-   - 페이지 로드시 자동으로 새 창을 띄움
-   - 메인과 postMessage로 상호작용
+   ▶ 자동 비디오 창 (GitHub /videos 폴더 전용)
+   - videos 폴더 안 파일 목록(VIDEO_FILES)을 사용
+   - 팝업에서 선택/랜덤 재생 후 메인으로 전달
    ========================= */
 
 let EXTERNAL_FEED = false;
@@ -1055,10 +1084,11 @@ async function useExternalVideo(url) {
     await camVideo.play().catch(()=>{});
     EXTERNAL_FEED = true;
     if (camStatus) {
-      camStatus.textContent = `얼굴: ${hasFace ? '인식 중' : '인식 불가'}\n` +
-                              `눈동자: ${orientationFromEyeDir(eyeDir)}\n` +
-                              `엔진: ${(faceDetector ? 'FaceDetector' : (useFaceApi ? 'face-api' : 'none'))}\n` +
-                              `소스: external`;
+      camStatus.textContent =
+        `얼굴: ${hasFace ? '인식 중' : '인식 불가'}\n` +
+        `눈동자: ${orientationFromEyeDir(eyeDir)}\n` +
+        `엔진: ${(faceDetector ? 'FaceDetector' : (useFaceApi ? 'face-api' : 'none'))}\n` +
+        `소스: external`;
     }
     if (camPanel) camPanel.style.borderColor = '#f1c40f';
   } catch (e) {
@@ -1076,8 +1106,16 @@ async function restoreWebcam() {
   await startCameraAndTracking();
 }
 
-// 팝업(또는 새창) HTML
-function buildVideoPickerHTML() {
+// 팝업(또는 새창) HTML — /videos 폴더 전용
+function buildVideoPickerHTML(baseUrl, files) {
+  const options = files.length
+    ? files.map(name => `<option value="${name}">${name}</option>`).join('')
+    : `<option value="">(videos 폴더에 파일이 없습니다)</option>`;
+
+  // baseUrl, files를 그대로 문자열로 박아서 전달
+  const escapedBase = baseUrl.replace(/"/g, '&quot;');
+  const filesJson = JSON.stringify(files);
+
   return `<!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -1088,8 +1126,7 @@ function buildVideoPickerHTML() {
 :root{ color-scheme: dark; }
 body{ margin:0; font:14px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Apple SD Gothic Neo", "Noto Sans KR", "맑은 고딕", sans-serif; background:#0b0b0d; color:#eaeaea;}
 .bar{ padding:10px; background:#141417; display:flex; gap:8px; align-items:center; position:sticky; top:0; z-index:2; border-bottom:1px solid #1f1f25;}
-.bar input[type="text"]{ flex:1; background:#0b0b0d; color:#eee; border:1px solid #2a2a33; padding:8px 10px; border-radius:10px; }
-.bar input[type="file"]{ color:#bbb; }
+.bar select{ flex:1; background:#0b0b0d; color:#eee; border:1px solid #2a2a33; padding:8px 10px; border-radius:10px; }
 .bar button{ background:#00d0ff; color:#000; border:0; padding:8px 12px; border-radius:12px; cursor:pointer; font-weight:700; }
 .bar button.secondary{ background:#2a2a33; color:#eaeaea; }
 video{ width:100%; height:calc(100vh - 58px); background:#000; object-fit:contain; display:block; }
@@ -1098,44 +1135,69 @@ video{ width:100%; height:calc(100vh - 58px); background:#000; object-fit:contai
 </head>
 <body>
 <div class="bar">
-  <input id="url" type="text" placeholder="동영상 URL (mp4/webm/HLS*) 붙여넣기 후 Enter" />
-  <input id="file" type="file" accept="video/*" />
-  <button id="use" class="secondary" title="현재 재생 중인 영상을 메인에 연결">메인에 적용</button>
-  <button id="back" title="메인에서 웹캠으로 복귀">웹캠 복귀</button>
+  <select id="video-list" title="videos 폴더의 영상 목록">
+    ${options}
+  </select>
+  <button id="play" class="secondary">재생</button>
+  <button id="random" class="secondary">랜덤</button>
+  <button id="use">메인에 적용</button>
+  <button id="back">웹캠 복귀</button>
 </div>
 <video id="v" controls playsinline></video>
-<div class="hint">* 외부 URL은 CORS/자동재생 제약이 있을 수 있어요. 파일 선택이 가장 안전합니다.</div>
+<div class="hint">/videos 폴더 안 파일들만 사용합니다.</div>
 <script>
+const BASE = "${escapedBase}";
+const FILES = ${filesJson};
+
 const v = document.getElementById('v');
-const urlInput = document.getElementById('url');
-const fileInput = document.getElementById('file');
+const list = document.getElementById('video-list');
+const playBtn = document.getElementById('play');
+const randomBtn = document.getElementById('random');
 const useBtn = document.getElementById('use');
 const backBtn = document.getElementById('back');
-let currentBlobUrl = null;
+
+function buildUrl(name){
+  if (!name) return '';
+  return BASE + encodeURIComponent(name);
+}
 function playSafe(){ v.play().catch(()=>{}); }
-fileInput.addEventListener('change', () => {
-  if (currentBlobUrl) URL.revokeObjectURL(currentBlobUrl);
-  const f = fileInput.files && fileInput.files[0];
-  if (!f) return;
-  currentBlobUrl = URL.createObjectURL(f);
-  v.src = currentBlobUrl;
+
+function playSelected(){
+  const name = list.value;
+  if (!name) return;
+  v.src = buildUrl(name);
   playSafe();
-});
-urlInput.addEventListener('keydown', (e)=>{
-  if (e.key === 'Enter') {
-    v.src = urlInput.value.trim();
-    playSafe();
-  }
-});
+}
+
+function playRandom(){
+  if (!FILES.length) return;
+  const name = FILES[Math.floor(Math.random() * FILES.length)];
+  const idx = FILES.indexOf(name);
+  if (idx >= 0) list.selectedIndex = idx;
+  v.src = buildUrl(name);
+  playSafe();
+}
+
+playBtn.addEventListener('click', playSelected);
+randomBtn.addEventListener('click', playRandom);
+
 useBtn.addEventListener('click', ()=>{
-  let src = v.currentSrc || v.src || urlInput.value.trim();
-  if (!src) { alert('먼저 동영상을 선택/재생해 주세요.'); return; }
+  const src = v.currentSrc || v.src;
+  if (!src){ alert('먼저 영상을 재생해 주세요.'); return; }
   window.opener?.postMessage({ type:'externalVideo', url: src }, '*');
 });
+
 backBtn.addEventListener('click', ()=>{
   window.opener?.postMessage({ type:'restoreWebcam' }, '*');
 });
-document.addEventListener('click', playSafe);
+
+// 첫 로드시: 목록이 있으면 첫 번째 영상 자동 재생
+window.addEventListener('load', ()=>{
+  if (FILES.length){
+    list.selectedIndex = 0;
+    playSelected();
+  }
+});
 </script>
 </body></html>`;
 }
@@ -1148,7 +1210,10 @@ function openVideoWindowAuto() {
   const features = `width=${w},height=${h},left=${left},top=${top},resizable=yes,menubar=no,toolbar=no,location=no,status=no`;
   videoWin = window.open('', 'kim_external_video', features);
   if (!videoWin || videoWin.closed) return false;
-  const html = buildVideoPickerHTML();
+
+  const baseUrl = getVideosBaseUrl();
+  const html = buildVideoPickerHTML(baseUrl, VIDEO_FILES);
+
   try {
     videoWin.document.open();
     videoWin.document.write(html);
@@ -1210,6 +1275,7 @@ window.addEventListener('focus', ()=>{
     _videoWinCheckArmed = true;
   }
 })();
+
 // =========================
 // ▶ 끝
 // =========================
