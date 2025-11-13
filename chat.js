@@ -1,3 +1,4 @@
+[chat.js]
 /* =========================
    RIP-KIM chat.js (Safari + 얼굴인식 하이브리드 버전)
    - FaceDetector 우선 사용, 없으면 face-api.js 폴백
@@ -1023,39 +1024,10 @@ window.addEventListener('DOMContentLoaded', () => {
   }
 });
 
-// =========================
-// ▶ GitHub /videos 폴더용 설정
-// =========================
-
-// 여기에 videos 폴더에 넣은 실제 파일 이름들을 적어줘.
-// (예: /videos/intro.mp4, /videos/scene1.mp4 ...)
-const VIDEO_FILES = [
-  'video1.mp4',
-  'video2.mp4',
-  'video3.mp4',
-];
-
-// 현재 페이지 기준으로 /videos/ 경로 만들기
-function getVideosBaseUrl() {
-  const { origin, pathname } = window.location;
-  // 마지막 세그먼트(index.html 등)를 떼고 뒤에 'videos/' 붙임
-  const basePath = pathname.replace(/\/[^\/]*$/, '/');
-  return origin + basePath + 'videos/';
-}
-
-// 랜덤 영상 하나 뽑기
-function getRandomVideoUrl() {
-  if (!VIDEO_FILES.length) return null;
-  const base = getVideosBaseUrl();
-  const name = VIDEO_FILES[Math.floor(Math.random() * VIDEO_FILES.length)];
-  return base + encodeURIComponent(name);
-}
-
-
 /* =========================
-   ▶ 자동 비디오 창 (GitHub /videos 폴더 전용)
-   - videos 폴더 안 파일 목록(VIDEO_FILES)을 사용
-   - 팝업에서 선택/랜덤 재생 후 메인으로 전달
+   ▶ 자동 비디오 창 (파일/URL → 메인 인식 소스)
+   - 페이지 로드시 자동으로 새 창을 띄움
+   - 메인과 postMessage로 상호작용
    ========================= */
 
 let EXTERNAL_FEED = false;
@@ -1084,11 +1056,10 @@ async function useExternalVideo(url) {
     await camVideo.play().catch(()=>{});
     EXTERNAL_FEED = true;
     if (camStatus) {
-      camStatus.textContent =
-        `얼굴: ${hasFace ? '인식 중' : '인식 불가'}\n` +
-        `눈동자: ${orientationFromEyeDir(eyeDir)}\n` +
-        `엔진: ${(faceDetector ? 'FaceDetector' : (useFaceApi ? 'face-api' : 'none'))}\n` +
-        `소스: external`;
+      camStatus.textContent = `얼굴: ${hasFace ? '인식 중' : '인식 불가'}\n` +
+                              `눈동자: ${orientationFromEyeDir(eyeDir)}\n` +
+                              `엔진: ${(faceDetector ? 'FaceDetector' : (useFaceApi ? 'face-api' : 'none'))}\n` +
+                              `소스: external`;
     }
     if (camPanel) camPanel.style.borderColor = '#f1c40f';
   } catch (e) {
@@ -1106,16 +1077,8 @@ async function restoreWebcam() {
   await startCameraAndTracking();
 }
 
-// 팝업(또는 새창) HTML — /videos 폴더 전용
-function buildVideoPickerHTML(baseUrl, files) {
-  const options = files.length
-    ? files.map(name => `<option value="${name}">${name}</option>`).join('')
-    : `<option value="">(videos 폴더에 파일이 없습니다)</option>`;
-
-  // baseUrl, files를 그대로 문자열로 박아서 전달
-  const escapedBase = baseUrl.replace(/"/g, '&quot;');
-  const filesJson = JSON.stringify(files);
-
+// 팝업(또는 새창) HTML
+function buildVideoPickerHTML() {
   return `<!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -1126,7 +1089,8 @@ function buildVideoPickerHTML(baseUrl, files) {
 :root{ color-scheme: dark; }
 body{ margin:0; font:14px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Apple SD Gothic Neo", "Noto Sans KR", "맑은 고딕", sans-serif; background:#0b0b0d; color:#eaeaea;}
 .bar{ padding:10px; background:#141417; display:flex; gap:8px; align-items:center; position:sticky; top:0; z-index:2; border-bottom:1px solid #1f1f25;}
-.bar select{ flex:1; background:#0b0b0d; color:#eee; border:1px solid #2a2a33; padding:8px 10px; border-radius:10px; }
+.bar input[type="text"]{ flex:1; background:#0b0b0d; color:#eee; border:1px solid #2a2a33; padding:8px 10px; border-radius:10px; }
+.bar input[type="file"]{ color:#bbb; }
 .bar button{ background:#00d0ff; color:#000; border:0; padding:8px 12px; border-radius:12px; cursor:pointer; font-weight:700; }
 .bar button.secondary{ background:#2a2a33; color:#eaeaea; }
 video{ width:100%; height:calc(100vh - 58px); background:#000; object-fit:contain; display:block; }
@@ -1135,69 +1099,44 @@ video{ width:100%; height:calc(100vh - 58px); background:#000; object-fit:contai
 </head>
 <body>
 <div class="bar">
-  <select id="video-list" title="videos 폴더의 영상 목록">
-    ${options}
-  </select>
-  <button id="play" class="secondary">재생</button>
-  <button id="random" class="secondary">랜덤</button>
-  <button id="use">메인에 적용</button>
-  <button id="back">웹캠 복귀</button>
+  <input id="url" type="text" placeholder="동영상 URL (mp4/webm/HLS*) 붙여넣기 후 Enter" />
+  <input id="file" type="file" accept="video/*" />
+  <button id="use" class="secondary" title="현재 재생 중인 영상을 메인에 연결">메인에 적용</button>
+  <button id="back" title="메인에서 웹캠으로 복귀">웹캠 복귀</button>
 </div>
 <video id="v" controls playsinline></video>
-<div class="hint">/videos 폴더 안 파일들만 사용합니다.</div>
+<div class="hint">* 외부 URL은 CORS/자동재생 제약이 있을 수 있어요. 파일 선택이 가장 안전합니다.</div>
 <script>
-const BASE = "${escapedBase}";
-const FILES = ${filesJson};
-
 const v = document.getElementById('v');
-const list = document.getElementById('video-list');
-const playBtn = document.getElementById('play');
-const randomBtn = document.getElementById('random');
+const urlInput = document.getElementById('url');
+const fileInput = document.getElementById('file');
 const useBtn = document.getElementById('use');
 const backBtn = document.getElementById('back');
-
-function buildUrl(name){
-  if (!name) return '';
-  return BASE + encodeURIComponent(name);
-}
+let currentBlobUrl = null;
 function playSafe(){ v.play().catch(()=>{}); }
-
-function playSelected(){
-  const name = list.value;
-  if (!name) return;
-  v.src = buildUrl(name);
+fileInput.addEventListener('change', () => {
+  if (currentBlobUrl) URL.revokeObjectURL(currentBlobUrl);
+  const f = fileInput.files && fileInput.files[0];
+  if (!f) return;
+  currentBlobUrl = URL.createObjectURL(f);
+  v.src = currentBlobUrl;
   playSafe();
-}
-
-function playRandom(){
-  if (!FILES.length) return;
-  const name = FILES[Math.floor(Math.random() * FILES.length)];
-  const idx = FILES.indexOf(name);
-  if (idx >= 0) list.selectedIndex = idx;
-  v.src = buildUrl(name);
-  playSafe();
-}
-
-playBtn.addEventListener('click', playSelected);
-randomBtn.addEventListener('click', playRandom);
-
+});
+urlInput.addEventListener('keydown', (e)=>{
+  if (e.key === 'Enter') {
+    v.src = urlInput.value.trim();
+    playSafe();
+  }
+});
 useBtn.addEventListener('click', ()=>{
-  const src = v.currentSrc || v.src;
-  if (!src){ alert('먼저 영상을 재생해 주세요.'); return; }
+  let src = v.currentSrc || v.src || urlInput.value.trim();
+  if (!src) { alert('먼저 동영상을 선택/재생해 주세요.'); return; }
   window.opener?.postMessage({ type:'externalVideo', url: src }, '*');
 });
-
 backBtn.addEventListener('click', ()=>{
   window.opener?.postMessage({ type:'restoreWebcam' }, '*');
 });
-
-// 첫 로드시: 목록이 있으면 첫 번째 영상 자동 재생
-window.addEventListener('load', ()=>{
-  if (FILES.length){
-    list.selectedIndex = 0;
-    playSelected();
-  }
-});
+document.addEventListener('click', playSafe);
 </script>
 </body></html>`;
 }
@@ -1210,10 +1149,7 @@ function openVideoWindowAuto() {
   const features = `width=${w},height=${h},left=${left},top=${top},resizable=yes,menubar=no,toolbar=no,location=no,status=no`;
   videoWin = window.open('', 'kim_external_video', features);
   if (!videoWin || videoWin.closed) return false;
-
-  const baseUrl = getVideosBaseUrl();
-  const html = buildVideoPickerHTML(baseUrl, VIDEO_FILES);
-
+  const html = buildVideoPickerHTML();
   try {
     videoWin.document.open();
     videoWin.document.write(html);
@@ -1275,7 +1211,280 @@ window.addEventListener('focus', ()=>{
     _videoWinCheckArmed = true;
   }
 })();
-
 // =========================
 // ▶ 끝
 // =========================
+
+[index.html]
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>RIP - KIM</title>
+
+  <!-- 기본 메타 -->
+  <meta name="title" content="RIP - KIM">
+  <meta name="description" content="고인과 대화하는 미니멀 챗 인터페이스.">
+
+  <!-- Open Graph / Discord / Kakao -->
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://YOUR-DOMAIN.example.com/">
+  <meta property="og:title" content="RIP - KIM">
+  <meta property="og:site_name" content="RIP - KIM">
+  <meta property="og:description" content="고인과 대화하는 미니멀 챗 인터페이스.">
+  <meta property="og:image" content="https://YOUR-DOMAIN.example.com/og-image.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:url" content="https://YOUR-DOMAIN.example.com/">
+  <meta name="twitter:title" content="RIP - KIM">
+  <meta name="twitter:description" content="고인과 대화하는 미니멀 챗 인터페이스.">
+  <meta name="twitter:image" content="https://YOUR-DOMAIN.example.com/og-image.png">
+
+  <!-- PWA / 브라우저 꾸미기 (선택) -->
+  <meta name="theme-color" content="#000000">
+  <link rel="icon" href="/favicon.png">
+  <!-- <link rel="manifest" href="/manifest.json"> -->
+
+  <!-- Pixel-ish font -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet" />
+
+  <link rel="stylesheet" href="styles.css?v=3" />
+</head>
+<body>
+  <div id="app">
+    <main id="stage">
+      <!-- 중앙 초상: ASCII 전용 -->
+      <pre id="portrait"></pre>
+
+      <!-- AI 대사 박스 -->
+      <section id="ai-box" class="box" aria-live="polite">
+        <div id="chat-box"></div>
+      </section>
+
+      <!-- 입력 박스 -->
+      <section id="user-box" class="box box-input">
+        <input id="user-input" type="text" placeholder="고인에게 말을 걸어주세요" autocomplete="off" />
+        <button id="send-button" class="btn">SEND</button>
+      </section>
+    </main>
+  </div>
+
+
+
+  <!-- 캐시 무효화를 위해 쿼리스트링 버전 붙임 -->
+  <script src="chat.js?v=3"></script>
+</body>
+</html>
+
+[styles.css]
+@font-face {
+  font-family: 'DungGeunMo';
+  src: url('./fonts/DungGeunMo.woff2') format('woff2');
+  font-weight: normal;
+  font-style: normal;
+}
+
+:root {
+  --black: #000;
+  --white: #fff;
+  --border: #fff;
+  --green: #00ff00; /* 건희 대사색 */
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  height: 100%;
+  margin: 0;
+  background: var(--black);
+  color: var(--white);
+  font-family: 'DungGeunMo', monospace;
+}
+
+#app {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+}
+
+#stage {
+  display: grid;
+  grid-template-rows: auto auto auto;
+  gap: 16px;
+  justify-items: center;
+  width: min(720px, 92vw);
+}
+
+/* (이미지 전용) — 지금은 <pre>를 쓰므로 적용되지 않음 */
+img#portrait {
+  display: block;
+  width: 250px;
+  height: 250px;
+  image-rendering: pixelated;
+  filter: grayscale(1) contrast(1.05);
+}
+
+/* 공용 박스 (대화/입력) */
+.box {
+  width: 100%;
+  border: 3px solid var(--border);
+  background: var(--black);
+  padding: 14px;
+  border-radius: 4px;
+}
+
+#ai-box {
+  min-height: 140px;
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+#chat-box {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  white-space: pre-wrap;
+  word-break: keep-all;
+  overflow-y: auto;
+  max-height: 200px;
+}
+
+#chat-box .ai { color: var(--green); }
+#chat-box .user {
+  color: var(--white);
+  opacity: 0.9;
+  text-align: right;
+}
+
+/* 입력 박스 */
+.box-input {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+#user-input {
+  flex: 1;
+  min-width: 0;
+  border: 2px solid var(--border);
+  background: var(--black);
+  color: var(--white);
+  padding: 10px;
+  font-size: 12px;
+}
+
+.btn {
+  border: 2px solid var(--border);
+  background: transparent;
+  color: var(--white);
+  padding: 10px 14px;
+  cursor: pointer;
+}
+.btn:hover { transform: translateY(-2px); }
+
+/* 로딩 점 */
+.loading {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+}
+.loading .dot {
+  width: 6px; height: 6px;
+  background: var(--white);
+  animation: blink 1s infinite alternate;
+}
+.loading .dot:nth-child(2) { animation-delay: .2s; }
+.loading .dot:nth-child(3) { animation-delay: .4s; }
+@keyframes blink { 
+  to { 
+    opacity: .25; 
+    transform: translateY(-2px); 
+  } 
+}
+
+/* 작은 화면 대응 */
+@media (max-width: 420px) {
+  #stage { gap: 12px; }
+  .box { padding: 12px; }
+  #user-input, .btn { padding: 9px 12px; }
+}
+
+/* ====== 초상 ASCII 전용 ====== */
+/* 테두리(선) 제거! */
+#portrait {
+  border: none;          /* ✅ 선 제거 */
+  background: var(--black);
+  color: var(--white);
+  padding: 0;            /* 박스 느낌 없애려면 0 */
+  border-radius: 0;
+
+  display: block;
+  margin: 0 auto;        /* 중앙 배치 */
+  max-width: 100%;
+
+  image-rendering: auto;
+  filter: none;
+}
+
+/* 전체 노출 + 중앙 정렬(내용 폭 기준) */
+pre#portrait {
+  white-space: pre;
+  overflow: auto;
+  max-height: none;
+  width: auto;
+  height: auto;
+  display: inline-block; /* 내용 폭에 맞춤 */
+  text-align: left;
+
+  font-family: 'DungGeunMo', monospace;
+  font-size: 5px;        /* 필요시 4–8px로 조절 */
+  line-height: 1.05;
+}
+
+/* ====== 카메라 프리뷰 (좌측 상단 고정) ====== */
+#cam-container {
+  position: fixed;     /* 🔹 레이아웃에 영향을 안 주도록 고정 */
+  top: 10px;
+  left: 10px;
+  width: 180px;
+  z-index: 1000;
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+
+  background: rgba(0, 0, 0, 0.7);
+  border: 1px solid var(--border);
+  padding: 6px;
+  border-radius: 6px;
+}
+
+#cam-preview {
+  width: 100%;
+  height: auto;
+  border-radius: 4px;
+  background: #000;
+  object-fit: cover;
+}
+
+#face-status,
+#eye-direction {
+  font-size: 11px;
+  color: #cccccc;
+  text-align: center;
+}
+
+/* 모바일에서 너무 작으면 살짝 줄이기 */
+@media (max-width: 420px) {
+  #cam-container {
+    width: 140px;
+    padding: 4px;
+  }
+}
