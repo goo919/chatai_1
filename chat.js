@@ -910,7 +910,7 @@ function renderMessage(role, text){
    ========================= */
 
 // ⚠️ 실제 키는 base64로 인코딩해서 아래에 넣어줘.
-const OPENAI_KEY_B64 = 'PUT_YOUR_BASE64_ENCODED_OPENAI_KEY_HERE';
+const OPENAI_KEY_B64 = 'c2stcHJvai1IY0NheVlmLVVSd25zbmpucnB6TWRuNnNJeDV0VHc0Rzc3MmFxNGZGUU56c1JsRDRHcmR1Z2NlUmhIQkRwckpSbnQxSC1ZN2FydlQzQmxia0ZKRFVIWkExMm5mSXBoSFh4cXowSHBzQU12cU9ucXZlSkxkbUxMZjBWUUtRZTNnOEJtS2J2UXNFRWtlYnF5ZWpFcGppOFAzUGIxOEE=';
 function getOpenAIKey(){
   if (!OPENAI_KEY_B64) throw new Error('API 키(base64)를 chat.js에 설정해줘.');
   try { return atob(OPENAI_KEY_B64); } catch { throw new Error('API 키 디코딩 실패'); }
