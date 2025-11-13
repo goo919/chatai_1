@@ -125,7 +125,6 @@ function pushHistory(role, content) {
 }
 
 // === ★ ASCII 프레임: 눈 방향 + 입 열림 + 깜박임 ===
-// 너가 준 프레임들을 그대로 사용 (raw literal)
 
 // 눈 뜨고 입 닫음 (정면)
 const FRAME_OC_CENTER = String.raw`                            ▓▒░ ░▓▓▓████▓▓▓▓▓░░    
@@ -713,12 +712,13 @@ async function sendMessage(userMessage) {
   }
 }
 
-// === 카메라 + face-api.js 얼굴 추적 ===
+// === 카메라 + 간단 얼굴 추적(FaceDetector) ===
 let faceTrackInterval = null;
+let smoothedX = 0; // 부드러운 좌우 움직임을 위한 필터 값
 
 function createCameraUI() {
   const container = document.createElement('div');
-  container.id = 'camera-container';
+  container.id = 'cam-container'; // styles.css와 맞춤
   Object.assign(container.style, {
     position: 'fixed',
     top: '8px',
@@ -734,7 +734,7 @@ function createCameraUI() {
   });
 
   const video = document.createElement('video');
-  video.id = 'cam-video';
+  video.id = 'cam-preview'; // styles.css와 맞춤
   video.autoplay = true;
   video.muted = true;
   video.playsInline = true;
@@ -764,13 +764,13 @@ function updateFaceStatus(line1, gazeText) {
   status.textContent = line1 + (gazeText ? `\n${gazeText}` : '');
 }
 
-async function initCameraAndFaceApi() {
+async function initCameraAndFaceTracking() {
   if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
     updateFaceStatus('카메라 인식 미지원 (브라우저)', '');
     return;
   }
 
-  const video = document.getElementById('cam-video');
+  const video = document.getElementById('cam-preview');
   if (!video) return;
 
   try {
@@ -788,69 +788,52 @@ async function initCameraAndFaceApi() {
 
     updateFaceStatus('카메라 준비됨', 'center');
 
-    // face-api.js 존재 확인
-    if (!window.faceapi) {
-      updateFaceStatus('얼굴 인식 미지원 (face-api 없음)', 'center');
+    // 🔹 브라우저 내장 FaceDetector 지원 여부 체크
+    if (!('FaceDetector' in window)) {
+      updateFaceStatus('얼굴 인식 미지원 (브라우저)', 'center');
       return;
     }
 
-    updateFaceStatus('얼굴 모델 로딩중...', 'center');
-    try {
-      // /models 폴더에서 tiny_face_detector 모델 로딩해야 함
-      await faceapi.nets.tinyFaceDetector.loadFromUri('./models');
-    } catch (e) {
-      updateFaceStatus('얼굴 인식 미지원 (모델 로딩 실패)', 'center');
-      console.error(e);
-      return;
-    }
-
+    const detector = new FaceDetector({ fastMode: true, maxDetectedFaces: 1 });
     updateFaceStatus('얼굴 인식 준비됨', 'center');
-    startFaceTracking(video);
+    startFaceTracking(video, detector);
   } catch (err) {
     console.error(err);
     updateFaceStatus('카메라 접근 실패', '');
   }
 }
 
-function startFaceTracking(video) {
+function startFaceTracking(video, detector) {
   if (faceTrackInterval) clearInterval(faceTrackInterval);
-
-  const options = new faceapi.TinyFaceDetectorOptions({
-    inputSize: 256,
-    scoreThreshold: 0.4
-  });
 
   faceTrackInterval = setInterval(async () => {
     if (video.readyState < 2) return;
 
     try {
-      const detections = await faceapi.detectAllFaces(video, options);
-      if (!detections || detections.length === 0) {
+      const faces = await detector.detect(video);
+      if (!faces || faces.length === 0) {
         eyeDirection = 'center';
         updatePortrait();
         updateFaceStatus('얼굴 없음', 'center');
         return;
       }
 
-      // 여러 명일 경우 가장 큰 얼굴(가까운 사람) 사용
-      let best = detections[0];
-      let bestArea = best.box.width * best.box.height;
-      for (let i = 1; i < detections.length; i++) {
-        const d = detections[i];
-        const area = d.box.width * d.box.height;
-        if (area > bestArea) {
-          best = d;
-          bestArea = area;
-        }
-      }
-
-      const box = best.box;
+      const face = faces[0];
+      const box = face.boundingBox; // DOMRectReadOnly
       const centerX = box.x + box.width / 2;
-      const ratio = centerX / video.videoWidth; // 0~1
+
+      // 0~1 (영상 폭 안에서의 비율)
+      const ratio = centerX / video.videoWidth;
+      // -1 ~ 1 로 정규화 (왼쪽 -1, 오른쪽 +1)
+      const normalized = (ratio - 0.5) * 2;
+
+      // 🔹 부드럽게 움직이도록 저속 필터
+      smoothedX = smoothedX * 0.7 + normalized * 0.3;
 
       let dir = 'center';
-      if (ratio < 0.4) dir = 'left';
-      else if (ratio > 0.6) dir = 'right';
+      // 임계값을 낮게 잡아서 조금만 움직여도 따라가도록
+      if (smoothedX < -0.15) dir = 'left';
+      else if (smoothedX > 0.15) dir = 'right';
 
       eyeDirection = dir;
       updatePortrait();
@@ -891,7 +874,7 @@ sendButton.addEventListener('click', async () => {
 window.addEventListener('DOMContentLoaded', () => {
   // 카메라 UI (좌측 상단)
   createCameraUI();
-  initCameraAndFaceApi();
+  initCameraAndFaceTracking();
 
   // 초상 높이 고정 + 기본 상태
   lockPortraitHeight();
