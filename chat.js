@@ -8,7 +8,7 @@
        엔진: FaceDetector / face-api / none
    - 여러 명이면 가장 큰 얼굴(가장 가까운 얼굴) 기준
    - ASCII 초상 방향/깜빡임/입 모양 연동
-   - 별도 ASCII 비디오 창 자동 오픈 (로컬 영상 여러 개 선택)
+   - 외부 비디오 팝업 자동 오픈(차단 시 재시도 배너)
    ========================= */
 
 // === DOM ===
@@ -121,6 +121,8 @@ function pushHistory(role, content){
 
 /* =========================
    📼 프레임들 (여기에 네가 준 ASCII 넣기)
+   - 지금은 placeholder만 넣어둘게. 네가 쓰던 아스키들을
+     그대로 복붙해서 String.raw 안에 덮어써.
    ========================= */
 
 // 눈 뜨고 입 닫음 (정면)
@@ -910,27 +912,10 @@ function renderMessage(role, text){
    ========================= */
 
 // ⚠️ 실제 키는 base64로 인코딩해서 아래에 넣어줘.
-const OPENAI_KEY_B64 = '여기에_네_base64_API키를_넣어줘';
-
-// base64 → 실제 키
+const OPENAI_KEY_B64 = 'PUT_YOUR_BASE64_ENCODED_OPENAI_KEY_HERE';
 function getOpenAIKey(){
-  if (!OPENAI_KEY_B64) {
-    throw new Error('API 키(base64)를 chat.js에 설정해줘.');
-  }
-  const trimmed = OPENAI_KEY_B64.trim();
-
-  // 이미 'sk-'로 시작하면 그냥 원본 사용
-  if (/^sk-/.test(trimmed)) {
-    return trimmed;
-  }
-
-  try {
-    // 정상적인 base64라면 atob 성공
-    return atob(trimmed);
-  } catch (e) {
-    // 실패하면 그냥 원본 사용 (더 이상 디코딩 에러 안 터지게)
-    return trimmed;
-  }
+  if (!OPENAI_KEY_B64) throw new Error('API 키(base64)를 chat.js에 설정해줘.');
+  try { return atob(OPENAI_KEY_B64); } catch { throw new Error('API 키 디코딩 실패'); }
 }
 
 const SYSTEM_PROMPT =
@@ -1038,383 +1023,256 @@ window.addEventListener('DOMContentLoaded', () => {
   }
 });
 
+// =========================
+// ▶ GitHub /videos 폴더용 설정
+// =========================
+
+// 여기에 videos 폴더에 넣은 실제 파일 이름들을 적어줘.
+// (예: /videos/intro.mp4, /videos/scene1.mp4 ...)
+const VIDEO_FILES = [
+  'video1.mp4',
+  'video2.mp4',
+  'video3.mp4',
+];
+
+// 현재 페이지 기준으로 /videos/ 경로 만들기
+function getVideosBaseUrl() {
+  const { origin, pathname } = window.location;
+  // 마지막 세그먼트(index.html 등)를 떼고 뒤에 'videos/' 붙임
+  const basePath = pathname.replace(/\/[^\/]*$/, '/');
+  return origin + basePath + 'videos/';
+}
+
+// 랜덤 영상 하나 뽑기
+function getRandomVideoUrl() {
+  if (!VIDEO_FILES.length) return null;
+  const base = getVideosBaseUrl();
+  const name = VIDEO_FILES[Math.floor(Math.random() * VIDEO_FILES.length)];
+  return base + encodeURIComponent(name);
+}
+
+
 /* =========================
-   ▶ 로컬 비디오 ASCII 창 (웹캠과 완전 별도)
-   - 메인 RIP-KIM 웹캠은 그대로 유지
-   - 새 창에서 로컬 영상 여러 개 선택해서 ASCII 재생
+   ▶ 자동 비디오 창 (GitHub /videos 폴더 전용)
+   - videos 폴더 안 파일 목록(VIDEO_FILES)을 사용
+   - 팝업에서 선택/랜덤 재생 후 메인으로 전달
    ========================= */
 
-let asciiWin = null;
+let EXTERNAL_FEED = false;
+let originalStream = null; // 복귀용
+let videoWin = null;
 
-// 팝업에 넣을 HTML + JS 생성
-function buildLocalAsciiWindowHTML() {
+// 현재 스트림 멈추기
+function stopCurrentStream() {
+  try {
+    const v = camVideo;
+    if (!v) return;
+    if (v.srcObject) {
+      originalStream = v.srcObject;
+      v.srcObject.getTracks().forEach(t => t.stop());
+    }
+  } catch {}
+}
+
+// 외부 영상 사용
+async function useExternalVideo(url) {
+  try {
+    stopCurrentStream();
+    camVideo.srcObject = null;
+    camVideo.src = url;
+    camVideo.loop = true;
+    await camVideo.play().catch(()=>{});
+    EXTERNAL_FEED = true;
+    if (camStatus) {
+      camStatus.textContent =
+        `얼굴: ${hasFace ? '인식 중' : '인식 불가'}\n` +
+        `눈동자: ${orientationFromEyeDir(eyeDir)}\n` +
+        `엔진: ${(faceDetector ? 'FaceDetector' : (useFaceApi ? 'face-api' : 'none'))}\n` +
+        `소스: external`;
+    }
+    if (camPanel) camPanel.style.borderColor = '#f1c40f';
+  } catch (e) {
+    console.error('외부 영상 재생 실패:', e);
+    if (camStatus) camStatus.textContent = `외부 영상 오류: ${e.message || e}`;
+  }
+}
+
+// 웹캠 복귀
+async function restoreWebcam() {
+  try { camVideo.pause(); } catch {}
+  camVideo.removeAttribute('src');
+  camVideo.src = '';
+  EXTERNAL_FEED = false;
+  await startCameraAndTracking();
+}
+
+// 팝업(또는 새창) HTML — /videos 폴더 전용
+function buildVideoPickerHTML(baseUrl, files) {
+  const options = files.length
+    ? files.map(name => `<option value="${name}">${name}</option>`).join('')
+    : `<option value="">(videos 폴더에 파일이 없습니다)</option>`;
+
+  // baseUrl, files를 그대로 문자열로 박아서 전달
+  const escapedBase = baseUrl.replace(/"/g, '&quot;');
+  const filesJson = JSON.stringify(files);
+
   return `<!DOCTYPE html>
 <html lang="ko">
 <head>
-  <meta charset="UTF-8" />
-  <title>ASCII VIDEO (Local)</title>
-  <style>
-    :root { color-scheme: dark; }
-    html, body {
-      margin: 0;
-      padding: 0;
-      background: #000;
-      color: #fff;
-      width: 100%;
-      height: 100%;
-      overflow: hidden;
-      font-family: monospace;
-    }
-    body {
-      display: flex;
-      flex-direction: column;
-    }
-    header {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      align-items: center;
-      padding: 8px 10px;
-      background: rgba(0,0,0,0.85);
-      z-index: 10;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.6);
-    }
-    header label {
-      font-size: 12px;
-      opacity: 0.85;
-    }
-    #file-input {
-      max-width: 220px;
-    }
-    #file-list {
-      flex: 1;
-      min-width: 160px;
-      max-width: 260px;
-      background: #050509;
-      color: #eee;
-      border: 1px solid #333;
-      padding: 4px;
-      border-radius: 4px;
-      font-family: monospace;
-      font-size: 12px;
-    }
-    button {
-      background: #00d0ff;
-      color: #000;
-      border: 0;
-      padding: 6px 10px;
-      border-radius: 8px;
-      cursor: pointer;
-      font-size: 12px;
-      font-weight: 700;
-      white-space: nowrap;
-    }
-    button.secondary {
-      background:#22252f;
-      color:#eee;
-    }
-    #status {
-      font-size: 11px;
-      opacity: 0.8;
-      white-space: nowrap;
-      max-width: 220px;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-    #ascii {
-      white-space: pre;
-      font-family: monospace;
-      font-size: 8px;
-      line-height: 1.1;
-      flex: 1;
-      overflow: hidden;
-      padding: 0;
-      margin: 0;
-      background: #000;
-    }
-    #video {
-      display: none;
-    }
-  </style>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>외부 영상 공급</title>
+<style>
+:root{ color-scheme: dark; }
+body{ margin:0; font:14px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Apple SD Gothic Neo", "Noto Sans KR", "맑은 고딕", sans-serif; background:#0b0b0d; color:#eaeaea;}
+.bar{ padding:10px; background:#141417; display:flex; gap:8px; align-items:center; position:sticky; top:0; z-index:2; border-bottom:1px solid #1f1f25;}
+.bar select{ flex:1; background:#0b0b0d; color:#eee; border:1px solid #2a2a33; padding:8px 10px; border-radius:10px; }
+.bar button{ background:#00d0ff; color:#000; border:0; padding:8px 12px; border-radius:12px; cursor:pointer; font-weight:700; }
+.bar button.secondary{ background:#2a2a33; color:#eaeaea; }
+video{ width:100%; height:calc(100vh - 58px); background:#000; object-fit:contain; display:block; }
+.hint{position:absolute; right:10px; bottom:10px; opacity:0.7; font-size:12px}
+</style>
 </head>
 <body>
-  <header>
-    <label>
-      파일 선택
-      <input id="file-input" type="file" accept="video/*" multiple />
-    </label>
-    <select id="file-list"></select>
-    <button id="play-btn" class="secondary">재생</button>
-    <button id="prev-btn" class="secondary">이전</button>
-    <button id="next-btn" class="secondary">다음</button>
-    <button id="random-btn" class="secondary">랜덤</button>
-    <span id="status">로컬 비디오 파일을 선택해 주세요.</span>
-  </header>
+<div class="bar">
+  <select id="video-list" title="videos 폴더의 영상 목록">
+    ${options}
+  </select>
+  <button id="play" class="secondary">재생</button>
+  <button id="random" class="secondary">랜덤</button>
+  <button id="use">메인에 적용</button>
+  <button id="back">웹캠 복귀</button>
+</div>
+<video id="v" controls playsinline></video>
+<div class="hint">/videos 폴더 안 파일들만 사용합니다.</div>
+<script>
+const BASE = "${escapedBase}";
+const FILES = ${filesJson};
 
-  <video id="video" playsinline></video>
-  <pre id="ascii"></pre>
+const v = document.getElementById('v');
+const list = document.getElementById('video-list');
+const playBtn = document.getElementById('play');
+const randomBtn = document.getElementById('random');
+const useBtn = document.getElementById('use');
+const backBtn = document.getElementById('back');
 
-  <script>
-    const fileInput = document.getElementById('file-input');
-    const fileList  = document.getElementById('file-list');
-    const playBtn   = document.getElementById('play-btn');
-    const prevBtn   = document.getElementById('prev-btn');
-    const nextBtn   = document.getElementById('next-btn');
-    const randomBtn = document.getElementById('random-btn');
-    const statusEl  = document.getElementById('status');
-    const video     = document.getElementById('video');
-    const asciiEl   = document.getElementById('ascii');
+function buildUrl(name){
+  if (!name) return '';
+  return BASE + encodeURIComponent(name);
+}
+function playSafe(){ v.play().catch(()=>{}); }
 
-    const canvas = document.createElement('canvas');
-    const ctx    = canvas.getContext('2d', { willReadFrequently: true });
-
-    // ASCII 문자 세트 (어두움 → 밝음)
-    const CHAR_SET = " .:-=+*#%@ 사망 원인 질병 손상 검안 진단 번호 직인 Dx Rx Tx ICD COD DNR 410 VOID";
-
-    let COLS = 140;
-    let ROWS = 70;
-
-    function computeAsciiSize() {
-      const styles = window.getComputedStyle(asciiEl);
-      const fontSize   = parseFloat(styles.fontSize)   || 8;
-      const lineHeight = parseFloat(styles.lineHeight) || fontSize * 1.1;
-      const fontWidth  = fontSize * 0.6;
-
-      const header = document.querySelector('header');
-      const headerH = header ? header.offsetHeight : 0;
-
-      const availableW = window.innerWidth;
-      const availableH = window.innerHeight - headerH;
-
-      const cols = Math.max(40, Math.floor(availableW / fontWidth));
-      const rows = Math.max(20, Math.floor(availableH / lineHeight));
-
-      return { cols, rows };
-    }
-
-    function resizeAsciiResolution() {
-      const size = computeAsciiSize();
-      COLS = size.cols;
-      ROWS = size.rows;
-      canvas.width  = COLS;
-      canvas.height = ROWS;
-    }
-
-    resizeAsciiResolution();
-    window.addEventListener('resize', resizeAsciiResolution);
-
-    // 파일/플레이리스트 관리
-    let files = [];
-    let currentIndex = -1;
-    let objectUrl = null;
-
-    function updateFileList() {
-      fileList.innerHTML = "";
-      files.forEach((f, idx) => {
-        const opt = document.createElement('option');
-        opt.value = String(idx);
-        opt.textContent = f.name;
-        fileList.appendChild(opt);
-      });
-      if (files.length > 0) {
-        currentIndex = 0;
-        fileList.value = "0";
-        statusEl.textContent = "파일 로드됨: " + files[0].name;
-      } else {
-        currentIndex = -1;
-        statusEl.textContent = "로컬 비디오 파일을 선택해 주세요.";
-      }
-    }
-
-    fileInput.addEventListener('change', () => {
-      files = fileInput.files ? Array.from(fileInput.files) : [];
-      updateFileList();
-    });
-
-    fileList.addEventListener('change', () => {
-      const idx = parseInt(fileList.value, 10);
-      if (!Number.isNaN(idx)) {
-        currentIndex = idx;
-        if (files[currentIndex]) {
-          statusEl.textContent = "선택됨: " + files[currentIndex].name;
-        }
-      }
-    });
-
-    function loadCurrentFile() {
-      if (currentIndex < 0 || currentIndex >= files.length) {
-        alert("먼저 파일을 선택해 주세요.");
-        return false;
-      }
-      const file = files[currentIndex];
-      if (!file) return false;
-
-      if (objectUrl) {
-        URL.revokeObjectURL(objectUrl);
-        objectUrl = null;
-      }
-      objectUrl = URL.createObjectURL(file);
-      video.src = objectUrl;
-      video.muted = false;
-      video.volume = 1.0;
-      video.currentTime = 0;
-      statusEl.textContent = "재생 준비: " + file.name;
-      return true;
-    }
-
-    async function playCurrent() {
-      if (!loadCurrentFile()) return;
-      try {
-        if (video.readyState < 2) {
-          await new Promise(res => {
-            const handler = () => {
-              video.removeEventListener('loadedmetadata', handler);
-              res();
-            };
-            video.addEventListener('loadedmetadata', handler);
-          });
-        }
-        await video.play();
-        statusEl.textContent = "재생 중: " + (files[currentIndex]?.name || "");
-      } catch (e) {
-        console.error(e);
-        statusEl.textContent = "재생 오류: " + (e.message || e);
-      }
-    }
-
-    playBtn.addEventListener('click', playCurrent);
-
-    prevBtn.addEventListener('click', () => {
-      if (!files.length) return;
-      currentIndex = (currentIndex - 1 + files.length) % files.length;
-      fileList.value = String(currentIndex);
-      playCurrent();
-    });
-
-    nextBtn.addEventListener('click', () => {
-      if (!files.length) return;
-      currentIndex = (currentIndex + 1) % files.length;
-      fileList.value = String(currentIndex);
-      playCurrent();
-    });
-
-    randomBtn.addEventListener('click', () => {
-      if (!files.length) return;
-      currentIndex = Math.floor(Math.random() * files.length);
-      fileList.value = String(currentIndex);
-      playCurrent();
-    });
-
-    const ASCII_FPS = 15;
-    let lastTime = 0;
-
-    function loop(now) {
-      requestAnimationFrame(loop);
-      if (!video || video.paused || video.ended) return;
-      const delta = now - lastTime;
-      if (delta < 1000 / ASCII_FPS) return;
-      lastTime = now;
-      renderAsciiFrame();
-    }
-
-    requestAnimationFrame(loop);
-
-    function renderAsciiFrame() {
-      if (!video.videoWidth || !video.videoHeight) return;
-
-      ctx.drawImage(video, 0, 0, COLS, ROWS);
-      const imageData = ctx.getImageData(0, 0, COLS, ROWS);
-      const data = imageData.data;
-
-      let ascii = "";
-      for (let y = 0; y < ROWS; y++) {
-        let row = "";
-        for (let x = 0; x < COLS; x++) {
-          const index = (y * COLS + x) * 4;
-          const r = data[index + 0];
-          const g = data[index + 1];
-          const b = data[index + 2];
-
-          const luminance = 0.299 * r + 0.587 * g + 0.114 * b;
-          const norm = Math.pow(luminance / 255, 0.8);
-          let charIndex = Math.floor(norm * (CHAR_SET.length - 1));
-          if (charIndex < 0) charIndex = 0;
-          if (charIndex >= CHAR_SET.length) charIndex = CHAR_SET.length - 1;
-          row += CHAR_SET[charIndex];
-        }
-        ascii += row + "\\n";
-      }
-      asciiEl.textContent = ascii;
-    }
-
-    // 첫 안내 문구
-    statusEl.textContent = "로컬 비디오 파일을 여러 개 선택해 주세요 (다중 선택 가능).";
-  </script>
-</body>
-</html>`;
+function playSelected(){
+  const name = list.value;
+  if (!name) return;
+  v.src = buildUrl(name);
+  playSafe();
 }
 
-// 팝업 자동 열기
-function openAsciiWindowAuto() {
-  const w = 720, h = 540;
+function playRandom(){
+  if (!FILES.length) return;
+  const name = FILES[Math.floor(Math.random() * FILES.length)];
+  const idx = FILES.indexOf(name);
+  if (idx >= 0) list.selectedIndex = idx;
+  v.src = buildUrl(name);
+  playSafe();
+}
+
+playBtn.addEventListener('click', playSelected);
+randomBtn.addEventListener('click', playRandom);
+
+useBtn.addEventListener('click', ()=>{
+  const src = v.currentSrc || v.src;
+  if (!src){ alert('먼저 영상을 재생해 주세요.'); return; }
+  window.opener?.postMessage({ type:'externalVideo', url: src }, '*');
+});
+
+backBtn.addEventListener('click', ()=>{
+  window.opener?.postMessage({ type:'restoreWebcam' }, '*');
+});
+
+// 첫 로드시: 목록이 있으면 첫 번째 영상 자동 재생
+window.addEventListener('load', ()=>{
+  if (FILES.length){
+    list.selectedIndex = 0;
+    playSelected();
+  }
+});
+</script>
+</body></html>`;
+}
+
+// 자동 새창 열기
+function openVideoWindowAuto() {
+  const w = 560, h = 420;
   const left = Math.max(0, (screen.width - w) / 2);
-  const top  = Math.max(0, (screen.height - h) / 2);
+  const top = Math.max(0, (screen.height - h) / 2);
   const features = `width=${w},height=${h},left=${left},top=${top},resizable=yes,menubar=no,toolbar=no,location=no,status=no`;
+  videoWin = window.open('', 'kim_external_video', features);
+  if (!videoWin || videoWin.closed) return false;
 
-  asciiWin = window.open('', 'kim_ascii_video_local', features);
-  if (!asciiWin || asciiWin.closed) return false;
+  const baseUrl = getVideosBaseUrl();
+  const html = buildVideoPickerHTML(baseUrl, VIDEO_FILES);
 
-  const html = buildLocalAsciiWindowHTML();
   try {
-    asciiWin.document.open();
-    asciiWin.document.write(html);
-    asciiWin.document.close();
+    videoWin.document.open();
+    videoWin.document.write(html);
+    videoWin.document.close();
   } catch (e) {
-    console.warn('ASCII 창 HTML 주입 실패:', e);
+    console.warn('비디오 창 HTML 주입 실패:', e);
   }
   return true;
 }
 
-// 팝업 차단 시 띠 배너
-function showAsciiPopupRetryBanner() {
-  if (document.getElementById('ascii-popup-retry-banner')) return;
+// 팝업 차단 시 상단 띠 배너 제공
+function showPopupRetryBanner() {
+  if (document.getElementById('popup-retry-banner')) return;
   const bar = document.createElement('div');
-  bar.id = 'ascii-popup-retry-banner';
+  bar.id = 'popup-retry-banner';
   bar.innerHTML = `
-    <div style="
-      position:fixed; inset:auto 0 0 0; top:0; background:#141417; color:#eaeaea;
-      border-bottom:1px solid #2a2a33; padding:10px 12px; display:flex; gap:10px;
-      align-items:center; z-index:99999; font:14px/1.45 -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Apple SD Gothic Neo,Noto Sans KR,Arial,sans-serif;">
-      <strong>ASCII 비디오 창 열기</strong>
-      <span style="opacity:.8">브라우저가 자동 창 열기를 막았어. 아래 버튼으로 한 번 허용해줘.</span>
-      <button id="ascii-popup-retry-btn" style="margin-left:auto;background:#00d0ff;color:#000;border:0;padding:8px 12px;border-radius:10px;font-weight:700;cursor:pointer">열기</button>
-    </div>`;
+  <div style="
+    position:fixed; inset:auto 0 0 0; top:0; background:#141417; color:#eaeaea;
+    border-bottom:1px solid #2a2a33; padding:10px 12px; display:flex; gap:10px;
+    align-items:center; z-index:99999; font:14px/1.45 -apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Apple SD Gothic Neo,Noto Sans KR,Arial,sans-serif;">
+    <strong>비디오 창 열기</strong>
+    <span style="opacity:.8">브라우저가 자동 창 열기를 막았어. 아래 버튼으로 한 번만 허용해줘.</span>
+    <button id="popup-retry-btn" style="margin-left:auto;background:#00d0ff;color:#000;border:0;padding:8px 12px;border-radius:10px;font-weight:700;cursor:pointer">열기</button>
+  </div>`;
   document.body.appendChild(bar);
-  const btn = document.getElementById('ascii-popup-retry-btn');
-  btn.addEventListener('click', () => {
-    const ok = openAsciiWindowAuto();
+  const btn = document.getElementById('popup-retry-btn');
+  btn.addEventListener('click', ()=>{
+    const ok = openVideoWindowAuto();
     if (ok) bar.remove();
     else alert('창을 열 수 없었어. 브라우저 팝업 허용을 확인해줘.');
   });
 }
 
-let _asciiWinCheckArmed = false;
-
-// 포커스 돌아올 때, 창 닫혀 있으면 다시 시도
-window.addEventListener('focus', () => {
-  if (_asciiWinCheckArmed && (!asciiWin || asciiWin.closed)) {
-    const ok = openAsciiWindowAuto();
-    if (!ok) showAsciiPopupRetryBanner();
-    _asciiWinCheckArmed = false;
+// 부모-자식 메시지 처리
+window.addEventListener('message', (ev)=>{
+  if (!ev?.data) return;
+  if (ev.data.type === 'externalVideo' && ev.data.url) {
+    useExternalVideo(ev.data.url);
+  } else if (ev.data.type === 'restoreWebcam') {
+    restoreWebcam();
   }
 });
 
-// DOM 로드시 자동 실행 (웹캠과 완전 별개로 동작)
-(function bootAsciiWindowAuto() {
-  const ok = openAsciiWindowAuto();
-  if (!ok) {
-    showAsciiPopupRetryBanner();
-    _asciiWinCheckArmed = true;
+// 창이 닫혔으면 자동 재생성 시도 (포커스 시 1회)
+let _videoWinCheckArmed = false;
+window.addEventListener('focus', ()=>{
+  if (_videoWinCheckArmed && (!videoWin || videoWin.closed)) {
+    const ok = openVideoWindowAuto();
+    if (!ok) showPopupRetryBanner();
+    _videoWinCheckArmed = false;
+  }
+});
+
+// DOM 로드시 자동 오픈 시도
+(function bootExternalWindowAuto(){
+  const tryOpen = openVideoWindowAuto();
+  if (!tryOpen) {
+    showPopupRetryBanner();
+    _videoWinCheckArmed = true;
   }
 })();
 
