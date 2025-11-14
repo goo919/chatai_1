@@ -1,23 +1,20 @@
-
 /* =========================
-RIP-KIM chat.js (Safari + 얼굴인식 하이브리드 버전)
+RIP-KIM chat.js (Safari + 얼굴인식 하이브리드 + ASCII 완전 통합버전)
 - FaceDetector 우선 사용, 없으면 face-api.js 폴백
 - 사파리 대응(loadedmetadata 대기), 150ms 간격 추적
 - 카메라 프리뷰: 좌측 상단, 상태 텍스트:
-얼굴: 인식 중 / 인식 불가
-눈동자: left / center / right
-엔진: FaceDetector / face-api / none
-- 여러 명이면 가장 큰 얼굴(가장 가까운 얼굴) 기준
-- ASCII 초상 방향/깜빡임/입 모양 연동
-- 외부 비디오 팝업 자동 오픈(차단 시 재시도 배너)
+    얼굴: 인식 중 / 인식 불가
+    눈동자: left / center / right
+    엔진: FaceDetector / face-api / none
+- 여러 명이면 가장 큰 얼굴 기준
+- ASCII 초상 방향/깜빡임/입 모양 연동 (모음에 맞춰 토글)
+- 외부 비디오 팝업 자동 오픈(차단 시 배너로 재시도)
 ========================= */
 
 // === DOM ===
-const chatBox = document.getElementById('chat-box');
+const chatBox   = document.getElementById('chat-box');
 const userInput = document.getElementById('user-input');
 const sendButton= document.getElementById('send-button');
-
-// ▲ 초상 ASCII 출력 엘리먼트
 const portraitEl = document.getElementById('portrait');
 
 // === 상태 ===
@@ -26,104 +23,118 @@ let isSpeechEnabled = true;
 let userName = '';
 let isUserNameSet = false;
 
-// === Hangul 모음 판별 유틸 (전역) ===
+/* =========================
+모음 판별 (입 모양 토글용)
+========================= */
 const HANGUL_BASE = 0xAC00;
 const HANGUL_LAST = 0xD7A3;
 // 중성 인덱스 0..20: ㅏ,ㅐ,ㅑ,ㅒ,ㅓ,ㅔ,ㅕ,ㅖ,ㅗ,ㅘ,ㅙ,ㅚ,ㅛ,ㅜ,ㅝ,ㅞ,ㅟ,ㅠ,ㅡ,ㅢ,ㅣ
+// "입 크게 여는" 계열 (원하는 대로 조정 가능)
 const OPEN_JUNGSEONG = new Set([8,9,10,11,12,13,14,15,16,17,18,20]); 
+// ㅗ,ㅘ,ㅙ,ㅚ,ㅛ,ㅜ,ㅝ,ㅞ,ㅟ,ㅠ,ㅡ,ㅣ
+
 function isLatinVowel(ch){ return /[AEIOUaeiou]/.test(ch); }
 function isHangulOpenVowel(ch){
-const code = ch.codePointAt(0);
-if (code < HANGUL_BASE || code > HANGUL_LAST) return false;
-const syllableIndex = code - HANGUL_BASE;
-const jung = Math.floor(syllableIndex / 28) % 21;
-return OPEN_JUNGSEONG.has(jung);
+  const code = ch.codePointAt(0);
+  if (code < HANGUL_BASE || code > HANGUL_LAST) return false;
+  const syllableIndex = code - HANGUL_BASE;
+  const jung = Math.floor(syllableIndex / 28) % 21;
+  return OPEN_JUNGSEONG.has(jung);
 }
 function isVowelChar(ch){
-if(!/\S/.test(ch)) return false;
-return isLatinVowel(ch) || isHangulOpenVowel(ch);
-}
-
-// === 오디오 (단일 AudioContext 재사용) ===
-let audioCtx;
-function ensureAudioCtx(){
-if (!audioCtx){
-const C = window.AudioContext || window.webkitAudioContext;
-audioCtx = new C();
-}
-return audioCtx;
-}
-function playBeep(freq = 440){
-if (!isSpeechEnabled) return;
-try{
-const ctx = ensureAudioCtx();
-const osc = ctx.createOscillator();
-const gain= ctx.createGain();
-osc.connect(gain); gain.connect(ctx.destination);
-osc.frequency.setValueAtTime(freq, ctx.currentTime);
-gain.gain.setValueAtTime(0.0001, ctx.currentTime);
-gain.gain.exponentialRampToValueAtTime(0.2, ctx.currentTime + 0.02);
-gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.1);
-osc.start(); osc.stop(ctx.currentTime + 0.12);
-}catch{}
-}
-
-// === 안전한 타이핑 효과 (비프 동기 콜백 지원) ===
-function typeWriter(element, text, delay = 16, onChar = null, onDone = null){
-element.textContent = '';
-let i = 0;
-(function tick(){
-if (i < text.length){
-const ch = text.charAt(i);
-element.textContent += ch;
-playBeep(220 + (ch.charCodeAt(0) % 220));
-if (typeof onChar === 'function') onChar(ch);
-i++;
-setTimeout(tick, delay);
-} else {
-if (typeof onDone === 'function') onDone();
-}
-})();
-}
-function splitAndTypeWriter(element, text, maxLength = 160, delay = 16, onChar = null, onAllDone = null){
-const words = text.split(' ');
-const parts = [];
-let part = '';
-for (const w of words){
-if ((part + (part ? ' ' : '') + w).length > maxLength){
-parts.push(part); part = w;
-} else {
-part += (part ? ' ' : '') + w;
-}
-}
-if (part) parts.push(part);
-
-(async () => {
-for (let idx = 0; idx < parts.length; idx++){
-const p = parts[idx];
-const line = document.createElement('div');
-element.appendChild(line);
-await new Promise(resolve => {
-typeWriter(line, p, delay, onChar, () => setTimeout(resolve, 20));
-});
-}
-if (typeof onAllDone === 'function') onAllDone();
-})();
-}
-
-// === 히스토리 ===
-function pushHistory(role, content){
-conversationHistory.push({ role, content });
-const MAX = 20;
-if (conversationHistory.length > MAX){
-conversationHistory = conversationHistory.slice(-MAX);
-}
+  if(!/\S/.test(ch)) return false;   // 공백류는 무시
+  return isLatinVowel(ch) || isHangulOpenVowel(ch);
 }
 
 /* =========================
-📼 프레임들 (여기에 네가 준 ASCII 넣기)
-- 지금은 placeholder만 넣어둘게. 네가 쓰던 아스키들을
-그대로 복붙해서 String.raw 안에 덮어써.
+오디오 비프 (단일 AudioContext 재사용)
+========================= */
+let audioCtx;
+function ensureAudioCtx(){
+  if (!audioCtx){
+    const C = window.AudioContext || window.webkitAudioContext;
+    audioCtx = new C();
+  }
+  return audioCtx;
+}
+function playBeep(freq = 440){
+  if (!isSpeechEnabled) return;
+  try{
+    const ctx  = ensureAudioCtx();
+    const osc  = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain); 
+    gain.connect(ctx.destination);
+    osc.frequency.setValueAtTime(freq, ctx.currentTime);
+    gain.gain.setValueAtTime(0.0001, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.2, ctx.currentTime + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.1);
+    osc.start();
+    osc.stop(ctx.currentTime + 0.12);
+  }catch{}
+}
+
+/* =========================
+타이핑 효과 (비프 + 콜백 지원)
+========================= */
+function typeWriter(element, text, delay = 16, onChar = null, onDone = null){
+  element.textContent = '';
+  let i = 0;
+  (function tick(){
+    if (i < text.length){
+      const ch = text.charAt(i);
+      element.textContent += ch;
+      playBeep(220 + (ch.charCodeAt(0) % 220));
+      if (typeof onChar === 'function') onChar(ch);
+      i++;
+      setTimeout(tick, delay);
+    } else {
+      if (typeof onDone === 'function') onDone();
+    }
+  })();
+}
+
+function splitAndTypeWriter(element, text, maxLength = 160, delay = 16, onChar = null, onAllDone = null){
+  const words = text.split(' ');
+  const parts = [];
+  let part = '';
+  for (const w of words){
+    if ((part + (part ? ' ' : '') + w).length > maxLength){
+      parts.push(part);
+      part = w;
+    } else {
+      part += (part ? ' ' : '') + w;
+    }
+  }
+  if (part) parts.push(part);
+
+  (async () => {
+    for (let idx = 0; idx < parts.length; idx++){
+      const p = parts[idx];
+      const line = document.createElement('div');
+      element.appendChild(line);
+      await new Promise(resolve => {
+        typeWriter(line, p, delay, onChar, () => setTimeout(resolve, 20));
+      });
+    }
+    if (typeof onAllDone === 'function') onAllDone();
+  })();
+}
+
+/* =========================
+히스토리
+========================= */
+function pushHistory(role, content){
+  conversationHistory.push({ role, content });
+  const MAX = 20;
+  if (conversationHistory.length > MAX){
+    conversationHistory = conversationHistory.slice(-MAX);
+  }
+}
+
+/* =========================
+📼 ASCII 프레임 (눈/입/방향)
+- 모두 한 번 정규화해서 줄 수 고정
 ========================= */
 
 // 눈 뜨고 입 닫음 (정면)
@@ -269,7 +280,6 @@ const F_OC_LEFT = String.raw`
 
 // 눈 뜨고 입 벌림 (정면)
 const F_OO_CENTER = String.raw`
-
 ▓▒░ ░▓▓▓████▓▓▓▓▓░░ 
 ░░░███████████████████▓▒▒ 
 ░░▓▓██▓███████████████████████▓▒ 
@@ -458,7 +468,6 @@ const F_CC_CENTER = String.raw`
 
 // 눈 감고 입 벌림 (정면)
 const F_CO_CENTER = String.raw`
-눈 감고 입 벌림
 ▓▒░ ░▓▓▓████▓▓▓▓▓░░ 
 ░░░███████████████████▓▒▒ 
 ░░▓▓██▓███████████████████████▓▒ 
@@ -507,416 +516,425 @@ const F_CO_CENTER = String.raw`
 /* =========================
 프레임 정규화 & 선택
 ========================= */
-
 function splitLines(s){ return s.replace(/\r\n/g, '\n').split('\n'); }
 function joinLines(arr){ return arr.join('\n'); }
+
 function getMaxColsRows(frames){
-let maxCols = 0, maxRows = 0;
-for (const f of frames){
-const lines = splitLines(f);
-maxRows = Math.max(maxRows, lines.length);
-for (const ln of lines) maxCols = Math.max(maxCols, ln.length);
-}
-return { maxCols, maxRows };
+  let maxCols = 0, maxRows = 0;
+  for (const f of frames){
+    const lines = splitLines(f);
+    maxRows = Math.max(maxRows, lines.length);
+    for (const ln of lines) maxCols = Math.max(maxCols, ln.length);
+  }
+  return { maxCols, maxRows };
 }
 function normalizeFrames(frames){
-const { maxCols, maxRows } = getMaxColsRows(frames);
-const normalized = frames.map(f=>{
-const lines = splitLines(f);
-const out = [];
-for (let r=0;r<maxRows;r++){
-const src = lines[r] ?? '';
-const pad = src + ' '.repeat(Math.max(0, maxCols - src.length));
-out.push(pad);
-}
-return joinLines(out);
-});
-return { normalized, maxRows };
+  const { maxCols, maxRows } = getMaxColsRows(frames);
+  const normalized = frames.map(f=>{
+    const lines = splitLines(f);
+    const out = [];
+    for (let r=0;r<maxRows;r++){
+      const src = lines[r] ?? '';
+      const pad = src + ' '.repeat(Math.max(0, maxCols - src.length));
+      out.push(pad);
+    }
+    return joinLines(out);
+  });
+  return { normalized, maxRows };
 }
 
-// 정규화 실행 (모든 프레임 등록)
+// 전체 프레임 정규화
 const FRAME_LIST = [
-F_OC_CENTER, F_OC_LEFT, F_OC_RIGHT,
-F_OO_CENTER, F_OO_LEFT, F_OO_RIGHT,
-F_CC_CENTER, F_CO_CENTER
+  F_OC_CENTER, F_OC_LEFT, F_OC_RIGHT,
+  F_OO_CENTER, F_OO_LEFT, F_OO_RIGHT,
+  F_CC_CENTER, F_CO_CENTER
 ];
 const { normalized: __NF__, maxRows: __MAX_ROWS__ } = normalizeFrames(FRAME_LIST);
 
-// 정규화된 프레임 재매핑
+// 정규화된 프레임 매핑
 const NF_OC_CENTER = __NF__[0];
-const NF_OC_LEFT = __NF__[1];
-const NF_OC_RIGHT = __NF__[2];
+const NF_OC_LEFT   = __NF__[1];
+const NF_OC_RIGHT  = __NF__[2];
 const NF_OO_CENTER = __NF__[3];
-const NF_OO_LEFT = __NF__[4];
-const NF_OO_RIGHT = __NF__[5];
+const NF_OO_LEFT   = __NF__[4];
+const NF_OO_RIGHT  = __NF__[5];
 const NF_CC_CENTER = __NF__[6];
 const NF_CO_CENTER = __NF__[7];
 
-// 선택용 테이블
+// 열린 눈/닫힌 눈 프레임 테이블
 const FRAMES_OPEN_EYES = {
-mouthClosed: { left: NF_OC_LEFT, center: NF_OC_CENTER, right: NF_OC_RIGHT },
-mouthOpen: { left: NF_OO_LEFT, center: NF_OO_CENTER, right: NF_OO_RIGHT },
+  mouthClosed: { left: NF_OC_LEFT,   center: NF_OC_CENTER, right: NF_OC_RIGHT },
+  mouthOpen:   { left: NF_OO_LEFT,   center: NF_OO_CENTER, right: NF_OO_RIGHT },
 };
 const FRAMES_CLOSED_EYES = {
-mouthClosed: NF_CC_CENTER,
-mouthOpen: NF_CO_CENTER,
+  mouthClosed: NF_CC_CENTER,
+  mouthOpen:   NF_CO_CENTER,
 };
 
+// 초상 높이 고정 (줄 수 기준)
 function lockPortraitHeight(){
-if (!portraitEl) return;
-const cs = getComputedStyle(portraitEl);
-let lh = parseFloat(cs.lineHeight);
-if (Number.isNaN(lh)) lh = parseFloat(cs.fontSize) * 1.2;
-portraitEl.style.minHeight = `${Math.ceil(lh * __MAX_ROWS__)}px`;
+  if (!portraitEl) return;
+  const cs = getComputedStyle(portraitEl);
+  let lh = parseFloat(cs.lineHeight);
+  if (Number.isNaN(lh)) lh = parseFloat(cs.fontSize) * 1.2;
+  portraitEl.style.minHeight = `${Math.ceil(lh * __MAX_ROWS__)}px`;
 }
 
 /* =========================
-📹 카메라 프리뷰 설정/패널
+카메라 프리뷰 패널
 ========================= */
-
 let CAMERA_PREVIEW_ENABLED = true;
 window.setCameraPreviewEnabled = function(flag){
-CAMERA_PREVIEW_ENABLED = !!flag;
-const panel = document.getElementById('cam-preview');
-if (panel) panel.style.display = CAMERA_PREVIEW_ENABLED ? 'block' : 'none';
+  CAMERA_PREVIEW_ENABLED = !!flag;
+  const panel = document.getElementById('cam-preview');
+  if (panel) panel.style.display = CAMERA_PREVIEW_ENABLED ? 'block' : 'none';
 };
 
 let camPanel = null, camVideo = null, camStatus = null;
+
 function createCameraPreview(){
-if (document.getElementById('cam-preview')) return;
+  if (document.getElementById('cam-preview')) return;
 
-const panel = document.createElement('div');
-panel.id = 'cam-preview';
-Object.assign(panel.style, {
-position: 'fixed',
-left: '12px',
-top: '12px', // ⬅️ 좌측 상단 고정
-width: '220px',
-background: 'rgba(0,0,0,0.6)',
-color: '#ddd',
-fontFamily: 'monospace',
-fontSize: '12px',
-border: '2px solid #e74c3c',
-borderRadius: '8px',
-overflow: 'hidden',
-zIndex: '9999',
-boxShadow: '0 4px 12px rgba(0,0,0,0.35)',
-display: CAMERA_PREVIEW_ENABLED ? 'block' : 'none',
-backdropFilter: 'blur(2px)',
-});
+  const panel = document.createElement('div');
+  panel.id = 'cam-preview';
+  Object.assign(panel.style, {
+    position: 'fixed',
+    left: '12px',
+    top: '12px',
+    width: '220px',
+    background: 'rgba(0,0,0,0.6)',
+    color: '#ddd',
+    fontFamily: 'monospace',
+    fontSize: '12px',
+    border: '2px solid #e74c3c',
+    borderRadius: '8px',
+    overflow: 'hidden',
+    zIndex: '9999',
+    boxShadow: '0 4px 12px rgba(0,0,0,0.35)',
+    display: CAMERA_PREVIEW_ENABLED ? 'block' : 'none',
+    backdropFilter: 'blur(2px)',
+  });
 
-const video = document.createElement('video');
-Object.assign(video, { autoplay:true, playsInline:true, muted:true });
-Object.assign(video.style, {
-width:'100%',
-height:'150px',
-objectFit:'cover',
-background:'#111',
-display:'block'
-});
+  const video = document.createElement('video');
+  Object.assign(video, { autoplay:true, playsInline:true, muted:true });
+  Object.assign(video.style, {
+    width:'100%',
+    height:'150px',
+    objectFit:'cover',
+    background:'#111',
+    display:'block'
+  });
 
-const status = document.createElement('div');
-Object.assign(status.style, {
-padding:'6px 8px',
-lineHeight:'1.4',
-whiteSpace:'pre-line',
-borderTop:'1px solid rgba(255,255,255,0.12)'
-});
-status.textContent = '카메라 준비 중...';
+  const status = document.createElement('div');
+  Object.assign(status.style, {
+    padding:'6px 8px',
+    lineHeight:'1.4',
+    whiteSpace:'pre-line',
+    borderTop:'1px solid rgba(255,255,255,0.12)'
+  });
+  status.textContent = '카메라 준비 중...';
 
-panel.appendChild(video);
-panel.appendChild(status);
-document.body.appendChild(panel);
+  panel.appendChild(video);
+  panel.appendChild(status);
+  document.body.appendChild(panel);
 
-camPanel = panel;
-camVideo = video;
-camStatus = status;
+  camPanel = panel;
+  camVideo = video;
+  camStatus = status;
 }
 
 function orientationFromEyeDir(x){
-if (x < -0.25) return 'left';
-if (x > 0.25) return 'right';
-return 'center';
+  if (x < -0.25) return 'left';
+  if (x > 0.25) return 'right';
+  return 'center';
 }
 
 /* =========================
 👁️ 방향/깜빡임/입 상태
 ========================= */
-
 let isBlinking = false;
-let mouthOpen = false;
+let mouthOpen  = false;
 let mouthCount = 0;
 
-let faceDetector = null; // 네이티브
-let useFaceApi = false; // 폴백 플래그
-let eyeDir = 0; // -1(왼)~0(정면)~+1(오른)
+let faceDetector = null;
+let useFaceApi   = false;
+let eyeDir       = 0; // -1~+1
+
 let trackingTimer = null;
-
-// 얼굴 인식 여부(상태 텍스트용)
-let hasFace = false;
+let hasFace   = false;
 let missCount = 0;
-const MISS_THRESHOLD = 4; // 이만큼 연속으로 못 찾으면 '인식 불가'
+const MISS_THRESHOLD = 4;
 
+// 초상 렌더
 function showPortrait(){
-if (!portraitEl) return;
-const ori = orientationFromEyeDir(eyeDir); // left / center / right
-let frame;
-if (isBlinking){
-frame = FRAMES_CLOSED_EYES[mouthOpen ? 'mouthOpen' : 'mouthClosed'];
-} else {
-frame = FRAMES_OPEN_EYES[mouthOpen ? 'mouthOpen' : 'mouthClosed'][ori];
-}
-portraitEl.textContent = frame;
+  if (!portraitEl) return;
+  const ori = orientationFromEyeDir(eyeDir); // left / center / right
+  let frame;
+  if (isBlinking){
+    frame = FRAMES_CLOSED_EYES[mouthOpen ? 'mouthOpen' : 'mouthClosed'];
+  } else {
+    frame = FRAMES_OPEN_EYES[mouthOpen ? 'mouthOpen' : 'mouthClosed'][ori];
+  }
+  portraitEl.textContent = frame;
 }
 
+// 입 상태 리셋
 function resetMouth(){
-mouthCount = 0;
-mouthOpen = false;
-showPortrait();
+  mouthCount = 0;
+  mouthOpen  = false;
+  showPortrait();
 }
+
+// 모음에서만 입 열고 닫고
 function onBeepCharToggle(ch){
-if (!isVowelChar(ch)) return;
-mouthCount++;
-mouthOpen = (mouthCount % 2 === 1);
-showPortrait();
+  if (!isVowelChar(ch)) return;
+  mouthCount++;
+  mouthOpen = (mouthCount % 2 === 1);
+  showPortrait();
 }
 
 // 랜덤 깜빡임
 let blinkTimer = null;
 function startBlinking(){
-if (blinkTimer) clearTimeout(blinkTimer);
-const next = () => {
-const wait = 3000 + Math.random() * 4000; // 3~7초
-blinkTimer = setTimeout(()=>{
-isBlinking = true; showPortrait();
-setTimeout(()=>{ isBlinking = false; showPortrait(); next(); }, 120);
-}, wait);
-};
-next();
+  if (blinkTimer) clearTimeout(blinkTimer);
+  const next = () => {
+    const wait = 3000 + Math.random() * 4000;
+    blinkTimer = setTimeout(()=>{
+      isBlinking = true;  
+      showPortrait();
+      setTimeout(()=>{
+        isBlinking = false;
+        showPortrait();
+        next();
+      }, 120);
+    }, wait);
+  };
+  next();
 }
 
 /* =========================
-face-api.js 동적 로드 & 모델
+face-api.js 동적 로드
 ========================= */
-
 function loadScriptOnce(src){
-return new Promise((resolve, reject)=>{
-if (document.querySelector(`script[src="${src}"]`)) return resolve();
-const s = document.createElement('script');
-s.src = src;
-s.defer = true;
-s.onload = () => resolve();
-s.onerror = (e) => reject(e);
-document.head.appendChild(s);
-});
+  return new Promise((resolve, reject)=>{
+    if (document.querySelector(`script[src="${src}"]`)) return resolve();
+    const s = document.createElement('script');
+    s.src = src;
+    s.defer = true;
+    s.onload = () => resolve();
+    s.onerror = (e) => reject(e);
+    document.head.appendChild(s);
+  });
 }
 
-const FACEAPI_LIB_URL = 'https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js';
+const FACEAPI_LIB_URL    = 'https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js';
 const FACEAPI_MODELS_URL = 'https://justadudewhohacks.github.io/face-api.js/models';
 let faceApiReady = false;
 
 async function ensureFaceApi(){
-if (!window.faceapi){
-try{
-await loadScriptOnce(FACEAPI_LIB_URL);
-}catch{
-return false;
-}
-}
-if (faceApiReady) return true;
-try{
-await faceapi.nets.tinyFaceDetector.loadFromUri(FACEAPI_MODELS_URL);
-await faceapi.nets.faceLandmark68TinyNet.loadFromUri(FACEAPI_MODELS_URL);
-faceApiReady = true;
-return true;
-}catch{
-return false;
-}
+  if (!window.faceapi){
+    try{
+      await loadScriptOnce(FACEAPI_LIB_URL);
+    }catch{
+      return false;
+    }
+  }
+  if (faceApiReady) return true;
+  try{
+    await faceapi.nets.tinyFaceDetector.loadFromUri(FACEAPI_MODELS_URL);
+    await faceapi.nets.faceLandmark68TinyNet.loadFromUri(FACEAPI_MODELS_URL);
+    faceApiReady = true;
+    return true;
+  }catch{
+    return false;
+  }
 }
 
 function centerXFromLandmarks(landmarks){
-const ids = [30, 33, 27, 8]; // nose tip, nose base, bridge, chin
-let sum = 0, n = 0;
-for (const i of ids){
-const pt = landmarks.positions[i];
-if (pt){ sum += pt.x; n++; }
-}
-return n ? (sum / n) : null;
+  const ids = [30, 33, 27, 8]; // 코/턱 주변
+  let sum = 0, n = 0;
+  for (const i of ids){
+    const pt = landmarks.positions[i];
+    if (pt){ sum += pt.x; n++; }
+  }
+  return n ? (sum / n) : null;
 }
 
 /* =========================
 카메라 시작 + 추적 루프
 ========================= */
-
 async function startCameraAndTracking(){
-try{
-createCameraPreview();
+  try{
+    createCameraPreview();
 
-const stream = await navigator.mediaDevices.getUserMedia({
-video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } },
-audio: false
-});
-camVideo.srcObject = stream;
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } },
+      audio: false
+    });
+    camVideo.srcObject = stream;
 
-// 메타데이터 대기 (Safari 중요)
-if (camVideo.readyState < 2){
-await new Promise(res => camVideo.addEventListener('loadedmetadata', res, { once:true }));
-}
+    if (camVideo.readyState < 2){
+      await new Promise(res => camVideo.addEventListener('loadedmetadata', res, { once:true }));
+    }
 
-// 기본: FaceDetector
-if ('FaceDetector' in window){
-try{
-faceDetector = new window.FaceDetector({ fastMode:true, maxDetectedFaces:5 });
-}catch{
-faceDetector = null;
-}
-}
+    // 기본: FaceDetector
+    if ('FaceDetector' in window){
+      try{
+        faceDetector = new window.FaceDetector({ fastMode:true, maxDetectedFaces:5 });
+      }catch{
+        faceDetector = null;
+      }
+    }
 
-// 미지원 → face-api.js 폴백 시도
-if (!faceDetector){
-useFaceApi = await ensureFaceApi();
-}
+    // 폴백: face-api
+    if (!faceDetector){
+      useFaceApi = await ensureFaceApi();
+    }
 
-if (trackingTimer) cancelAnimationFrame(trackingTimer);
+    if (trackingTimer) cancelAnimationFrame(trackingTimer);
 
-let last = 0;
-const DETECT_INTERVAL = 150;
+    let last = 0;
+    const DETECT_INTERVAL = 150;
 
-const tick = async (t)=>{
-try{
-let detectedThisFrame = false;
+    const tick = async (t)=>{
+      try{
+        let detectedThisFrame = false;
 
-if (camVideo.readyState >= 2 && t - last >= DETECT_INTERVAL){
-last = t;
+        if (camVideo.readyState >= 2 && t - last >= DETECT_INTERVAL){
+          last = t;
+          const w = camVideo.videoWidth || 1;
 
-const w = camVideo.videoWidth || 1;
+          if (faceDetector){
+            const faces = await faceDetector.detect(camVideo);
+            if (faces && faces.length){
+              let best = faces[0];
+              let bestArea = best.boundingBox.width * best.boundingBox.height;
+              for (let i=1;i<faces.length;i++){
+                const f = faces[i];
+                const a = f.boundingBox.width * f.boundingBox.height;
+                if (a > bestArea){
+                  best = f; bestArea = a;
+                }
+              }
+              const cx = best.boundingBox.x + best.boundingBox.width / 2;
+              const nx = (cx / w) * 2 - 1;
+              eyeDir = -nx; // 셀카 감각
+              detectedThisFrame = true;
+            }
+          } else if (useFaceApi && window.faceapi){
+            const det = await faceapi
+              .detectSingleFace(
+                camVideo,
+                new faceapi.TinyFaceDetectorOptions({ scoreThreshold: 0.35, inputSize: 224 })
+              )
+              .withFaceLandmarks(true);
 
-if (faceDetector){
-// 여러 명 중 가장 큰 얼굴 선택
-const faces = await faceDetector.detect(camVideo);
-if (faces && faces.length){
-let best = faces[0];
-let bestArea = best.boundingBox.width * best.boundingBox.height;
-for (let i=1;i<faces.length;i++){
-const f = faces[i];
-const a = f.boundingBox.width * f.boundingBox.height;
-if (a > bestArea){
-best = f; bestArea = a;
-}
-}
-const cx = best.boundingBox.x + best.boundingBox.width / 2;
-const nx = (cx / w) * 2 - 1; // 0..1 → -1..+1
-eyeDir = -nx; // 셀카 감각: 좌우 반전
-detectedThisFrame = true;
-}
-} else if (useFaceApi && window.faceapi){
-// face-api.js: 가장 대표 얼굴 1개
-const det = await faceapi
-.detectSingleFace(
-camVideo,
-new faceapi.TinyFaceDetectorOptions({ scoreThreshold: 0.35, inputSize: 224 })
-)
-.withFaceLandmarks(true);
+            if (det){
+              const cxLm = centerXFromLandmarks(det.landmarks);
+              const cx = (cxLm != null)
+                ? cxLm
+                : (det.detection.box.x + det.detection.box.width / 2);
+              const nx = (cx / w) * 2 - 1;
+              eyeDir = -nx;
+              detectedThisFrame = true;
+            }
+          }
 
-if (det){
-const cxLm = centerXFromLandmarks(det.landmarks);
-const cx = (cxLm != null)
-? cxLm
-: (det.detection.box.x + det.detection.box.width / 2);
-const nx = (cx / w) * 2 - 1;
-eyeDir = -nx;
-detectedThisFrame = true;
-}
-}
+          // 검출 실패 → 살짝 중앙으로 보간
+          if (!detectedThisFrame){
+            eyeDir *= 0.9;
+          }
 
-// 검출 실패 시 살짝 중앙으로 복원
-if (!detectedThisFrame){
-eyeDir *= 0.9;
-}
+          // 얼굴 인식 상태 업데이트
+          if (detectedThisFrame){
+            hasFace = true;
+            missCount = 0;
+          } else {
+            if (missCount < MISS_THRESHOLD) missCount++;
+            if (missCount >= MISS_THRESHOLD) hasFace = false;
+          }
+        }
 
-// 얼굴 인식 상태 업데이트 (살짝 버퍼 줌)
-if (detectedThisFrame){
-hasFace = true;
-missCount = 0;
-} else {
-if (missCount < MISS_THRESHOLD) missCount++;
-if (missCount >= MISS_THRESHOLD) hasFace = false;
-}
-}
+        // 초상 업데이트
+        showPortrait();
 
-// 초상 업데이트
-showPortrait();
+        // 상태 패널 텍스트
+        if (camPanel && camStatus){
+          camPanel.style.display = CAMERA_PREVIEW_ENABLED ? 'block' : 'none';
+          if (CAMERA_PREVIEW_ENABLED){
+            const engine =
+              faceDetector ? 'FaceDetector' :
+              (useFaceApi ? 'face-api' : 'none');
 
-// 프리뷰 패널 상태 텍스트
-if (camPanel && camStatus){
-camPanel.style.display = CAMERA_PREVIEW_ENABLED ? 'block' : 'none';
-if (CAMERA_PREVIEW_ENABLED){
-const engine =
-faceDetector ? 'FaceDetector' :
-(useFaceApi ? 'face-api' : 'none');
-camPanel.style.borderColor =
-engine !== 'none' ? '#2ecc71' : '#e74c3c';
+            camPanel.style.borderColor =
+              engine !== 'none' ? '#2ecc71' : '#e74c3c';
 
-const oriKey = orientationFromEyeDir(eyeDir); // left / center / right
-const faceText = hasFace ? '인식 중' : '인식 불가';
+            const oriKey = orientationFromEyeDir(eyeDir);
+            const faceText = hasFace ? '인식 중' : '인식 불가';
+            camStatus.textContent =
+              `얼굴: ${faceText}\n` +
+              `눈동자: ${oriKey}\n` +
+              `엔진: ${engine}`;
+          }
+        }
+      }catch(e){
+        // 프레임 단위 오류는 무시
+      }
+      trackingTimer = requestAnimationFrame(tick);
+    };
 
-camStatus.textContent =
-`얼굴: ${faceText}\n` +
-`눈동자: ${oriKey}\n` +
-`엔진: ${engine}`;
-}
-}
-}catch(e){
-// 프레임 단위 오류는 무시
-}
-trackingTimer = requestAnimationFrame(tick);
-};
-
-trackingTimer = requestAnimationFrame(tick);
-}catch(err){
-console.error('카메라 시작 실패:', err);
-if (camStatus) camStatus.textContent = `카메라 오류: ${err.message || err}`;
-}
+    trackingTimer = requestAnimationFrame(tick);
+  }catch(err){
+    console.error('카메라 시작 실패:', err);
+    if (camStatus) camStatus.textContent = `카메라 오류: ${err.message || err}`;
+  }
 }
 
 /* =========================
-말하기(타자)와 동기화
+말하기 + 입/비프 동기화
 ========================= */
-
 function speakWithAnimation(targetEl, text, maxLength = 160, delay = 16){
-resetMouth();
-splitAndTypeWriter(
-targetEl, text, maxLength, delay,
-onBeepCharToggle,
-() => { mouthOpen = false; showPortrait(); }
-);
+  resetMouth();
+  splitAndTypeWriter(
+    targetEl,
+    text,
+    maxLength,
+    delay,
+    onBeepCharToggle,
+    () => {
+      mouthOpen = false;
+      showPortrait(); // 말 다 끝나면 입 다문 상태로
+    }
+  );
 }
 
-// === 렌더 ===
+/* =========================
+메시지 렌더
+========================= */
 function renderMessage(role, text){
-const p = document.createElement('p');
-p.className = role;
-if (role === 'ai'){
-const span = document.createElement('span');
-p.appendChild(span);
-chatBox.appendChild(p);
-speakWithAnimation(span, `김건희: ${text}`, 160, 16);
-} else {
-p.textContent = `YOU: ${text}`;
-chatBox.appendChild(p);
-}
-chatBox.scrollTop = chatBox.scrollHeight;
+  const p = document.createElement('p');
+  p.className = role;
+  if (role === 'ai'){
+    const span = document.createElement('span');
+    p.appendChild(span);
+    chatBox.appendChild(p);
+    speakWithAnimation(span, `김건희: ${text}`, 160, 16);
+  } else {
+    p.textContent = `YOU: ${text}`;
+    chatBox.appendChild(p);
+  }
+  chatBox.scrollTop = chatBox.scrollHeight;
 }
 
 /* =========================
 OpenAI API
 ========================= */
-
 // ⚠️ 실제 키는 base64로 인코딩해서 아래에 넣어줘.
 const OPENAI_KEY_B64 = 'c2stcHJvai1IY0NheVlmLVVSd25zbmpucnB6TWRuNnNJeDV0VHc0Rzc3MmFxNGZGUU56c1JsRDRHcmR1Z2NlUmhIQkRwckpSbnQxSC1ZN2FydlQzQmxia0ZKRFVIWkExMm5mSXBoSFh4cXowSHBzQU12cU9ucXZlSkxkbUxMZjBWUUtRZTNnOEJtS2J2UXNFRWtlYnF5ZWpFcGppOFAzUGIxOEE=';
+
 function getOpenAIKey(){
-if (!OPENAI_KEY_B64) throw new Error('API 키(base64)를 chat.js에 설정해줘.');
-try { return atob(OPENAI_KEY_B64); } catch { throw new Error('API 키 디코딩 실패'); }
+  if (!OPENAI_KEY_B64) throw new Error('API 키(base64)를 chat.js에 설정해줘.');
+  try { return atob(OPENAI_KEY_B64); } catch { throw new Error('API 키 디코딩 실패'); }
 }
 
 const SYSTEM_PROMPT =
@@ -935,151 +953,164 @@ const SYSTEM_PROMPT =
 손녀: 김리안, 곽시아.`;
 
 async function sendMessage(userMessage){
-const OPENAI_API_KEY = getOpenAIKey();
+  const OPENAI_API_KEY = getOpenAIKey();
 
-// 이름 세팅
-if (!isUserNameSet){
-const m = userMessage.match(/(?:내\s*이름은|제\s*이름은|저는|난)\s*([^\s.,!?~"'()]+)\s*$/u);
-if (m){ userName = m[1]; isUserNameSet = true; }
-else { userName = '낯선이'; }
-} else {
-const m2 = userMessage.match(/(?:내\s*이름은|제\s*이름은)\s*([^\s.,!?~"'()]+)\s*$/u);
-if (m2) userName = m2[1];
-}
+  // 이름 세팅
+  if (!isUserNameSet){
+    const m = userMessage.match(/(?:내\s*이름은|제\s*이름은|저는|난)\s*([^\s.,!?~"'()]+)\s*$/u);
+    if (m){
+      userName = m[1];
+      isUserNameSet = true;
+    } else {
+      userName = '낯선이';
+    }
+  } else {
+    const m2 = userMessage.match(/(?:내\s*이름은|제\s*이름은)\s*([^\s.,!?~"'()]+)\s*$/u);
+    if (m2) userName = m2[1];
+  }
 
-const system = SYSTEM_PROMPT.replace('${NAME}', userName || '낯선이');
-const payload = {
-model: 'gpt-4o',
-messages: [
-{ role: 'system', content: system },
-...conversationHistory,
-{ role: 'user', content: userMessage }
-],
-max_tokens: 1000
-};
+  const system = SYSTEM_PROMPT.replace('${NAME}', userName || '낯선이');
 
-const res = await fetch('https://api.openai.com/v1/chat/completions', {
-method: 'POST',
-headers: { 'Content-Type':'application/json', 'Authorization': `Bearer ${OPENAI_API_KEY}` },
-body: JSON.stringify(payload)
-});
-const data = await res.json();
-if (!res.ok) throw new Error(data?.error?.message || 'OpenAI API 에러');
-return data.choices?.[0]?.message?.content ?? '';
+  const payload = {
+    model: 'gpt-4o',
+    messages: [
+      { role: 'system', content: system },
+      ...conversationHistory,
+      { role: 'user', content: userMessage }
+    ],
+    max_tokens: 1000
+  };
+
+  try{
+    const res = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: { 
+        'Content-Type':'application/json',
+        'Authorization': `Bearer ${OPENAI_API_KEY}`
+      },
+      body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data?.error?.message || 'OpenAI API 에러');
+    return data.choices?.[0]?.message?.content ?? '';
+  }catch(error){
+    if (String(error.message).includes('429')){
+      throw new Error('나는 너무 피곤해.. zzzz');
+    }
+    throw error;
+  }
 }
 
 /* =========================
 이벤트
 ========================= */
-
 sendButton.addEventListener('click', async () => {
-const message = userInput.value.trim();
-if (!message) return;
+  const message = userInput.value.trim();
+  if (!message) return;
 
-renderMessage('user', message);
-userInput.value = '';
+  renderMessage('user', message);
+  userInput.value = '';
 
-const loading = document.createElement('div');
-loading.className = 'loading';
-loading.innerHTML = '<span class="dot"></span><span class="dot"></span><span class="dot"></span>';
-chatBox.appendChild(loading);
-chatBox.scrollTop = chatBox.scrollHeight;
+  const loading = document.createElement('div');
+  loading.className = 'loading';
+  loading.innerHTML = '<span class="dot"></span><span class="dot"></span><span class="dot"></span>';
+  chatBox.appendChild(loading);
+  chatBox.scrollTop = chatBox.scrollHeight;
 
-try{
-const ai = await sendMessage(message);
-pushHistory('user', message);
-pushHistory('assistant', ai);
-loading.remove();
-renderMessage('ai', ai);
-} catch (e){
-loading.remove();
-renderMessage('ai', e.message || '오류가 발생했어.');
-}
+  try{
+    const ai = await sendMessage(message);
+    pushHistory('user', message);
+    pushHistory('assistant', ai);
+    loading.remove();
+    renderMessage('ai', ai);
+  } catch (e){
+    loading.remove();
+    renderMessage('ai', e.message || '오류가 발생했어.');
+  }
 });
 
 window.addEventListener('DOMContentLoaded', () => {
-// 고정 높이 (줄수 기준) + 초기 프레임
-lockPortraitHeight();
-showPortrait();
+  // 초상 높이 고정 + 초기 프레임
+  lockPortraitHeight();
+  showPortrait();
 
-// 인사
-const greet = '...왔구나.';
-const p = document.createElement('p');
-p.className = 'ai';
-const span = document.createElement('span');
-p.appendChild(span);
-chatBox.appendChild(p);
-speakWithAnimation(span, `김건희: ${greet}`, 160, 16);
+  // 첫 인사
+  const greet = '...왔구나.';
+  const p = document.createElement('p');
+  p.className = 'ai';
+  const span = document.createElement('span');
+  p.appendChild(span);
+  chatBox.appendChild(p);
+  speakWithAnimation(span, `김건희: ${greet}`, 160, 16);
 
-userInput.addEventListener('keydown', (e) => {
-if (e.key === 'Enter') { e.preventDefault(); sendButton.click(); }
-});
+  userInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); sendButton.click(); }
+  });
 
-// 깜빡임 + 카메라 추적
-startBlinking();
-if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia){
-startCameraAndTracking();
-} else if (camStatus){
-camStatus.textContent = '카메라 미지원 브라우저';
-}
+  // 깜빡임 + 카메라
+  startBlinking();
+  if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia){
+    startCameraAndTracking();
+  } else if (camStatus){
+    camStatus.textContent = '카메라 미지원 브라우저';
+  }
 });
 
 /* =========================
-▶ 자동 비디오 창 (파일/URL → 메인 인식 소스)
-- 페이지 로드시 자동으로 새 창을 띄움
-- 메인과 postMessage로 상호작용
+▶ 자동 비디오 창 (메인 인식 소스 교체)
 ========================= */
-
 let EXTERNAL_FEED = false;
-let originalStream = null; // 복귀용
+let originalStream = null;
 let videoWin = null;
 
-// 현재 스트림 멈추기
-function stopCurrentStream() {
-try {
-const v = camVideo;
-if (!v) return;
-if (v.srcObject) {
-originalStream = v.srcObject;
-v.srcObject.getTracks().forEach(t => t.stop());
-}
-} catch {}
-}
-
-// 외부 영상 사용
-async function useExternalVideo(url) {
-try {
-stopCurrentStream();
-camVideo.srcObject = null;
-camVideo.src = url;
-camVideo.loop = true;
-await camVideo.play().catch(()=>{});
-EXTERNAL_FEED = true;
-if (camStatus) {
-camStatus.textContent = `얼굴: ${hasFace ? '인식 중' : '인식 불가'}\n` +
-`눈동자: ${orientationFromEyeDir(eyeDir)}\n` +
-`엔진: ${(faceDetector ? 'FaceDetector' : (useFaceApi ? 'face-api' : 'none'))}\n` +
-`소스: external`;
-}
-if (camPanel) camPanel.style.borderColor = '#f1c40f';
-} catch (e) {
-console.error('외부 영상 재생 실패:', e);
-if (camStatus) camStatus.textContent = `외부 영상 오류: ${e.message || e}`;
-}
+function stopCurrentStream(){
+  try{
+    const v = camVideo;
+    if (!v) return;
+    const s = v.srcObject;
+    if (s && s.getTracks){
+      s.getTracks().forEach(t => t.stop());
+    }
+  }catch{}
 }
 
-// 웹캠 복귀
-async function restoreWebcam() {
-try { camVideo.pause(); } catch {}
-camVideo.removeAttribute('src');
-camVideo.src = '';
-EXTERNAL_FEED = false;
-await startCameraAndTracking();
+async function useExternalVideo(url){
+  try{
+    if (!camVideo) return;
+    stopCurrentStream();
+    camVideo.srcObject = null;
+    camVideo.src = url;
+    camVideo.loop = true;
+    await camVideo.play().catch(()=>{});
+    EXTERNAL_FEED = true;
+    if (camStatus){
+      camStatus.textContent = 
+        `얼굴: ${hasFace ? '인식 중' : '인식 불가'}\n` +
+        `눈동자: ${orientationFromEyeDir(eyeDir)}\n` +
+        `엔진: ${(faceDetector ? 'FaceDetector' : (useFaceApi ? 'face-api' : 'none'))}\n` +
+        `소스: external`;
+    }
+    if (camPanel) camPanel.style.borderColor = '#f1c40f';
+  }catch(e){
+    console.error('외부 영상 재생 실패:', e);
+    if (camStatus) camStatus.textContent = `외부 영상 오류: ${e.message || e}`;
+  }
 }
 
-// 팝업(또는 새창) HTML
-function buildVideoPickerHTML() {
-return `<!DOCTYPE html>
+async function restoreWebcam(){
+  try{
+    if (!camVideo) return;
+    camVideo.pause();
+    camVideo.removeAttribute('src');
+    camVideo.src = '';
+    EXTERNAL_FEED = false;
+    await startCameraAndTracking();
+  }catch{}
+}
+
+// 팝업(새창) HTML
+function buildVideoPickerHTML(){
+  return `<!DOCTYPE html>
 <html lang="ko">
 <head>
 <meta charset="utf-8"/>
@@ -1115,26 +1146,26 @@ const backBtn = document.getElementById('back');
 let currentBlobUrl = null;
 function playSafe(){ v.play().catch(()=>{}); }
 fileInput.addEventListener('change', () => {
-if (currentBlobUrl) URL.revokeObjectURL(currentBlobUrl);
-const f = fileInput.files && fileInput.files[0];
-if (!f) return;
-currentBlobUrl = URL.createObjectURL(f);
-v.src = currentBlobUrl;
-playSafe();
+  if (currentBlobUrl) URL.revokeObjectURL(currentBlobUrl);
+  const f = fileInput.files && fileInput.files[0];
+  if (!f) return;
+  currentBlobUrl = URL.createObjectURL(f);
+  v.src = currentBlobUrl;
+  playSafe();
 });
 urlInput.addEventListener('keydown', (e)=>{
-if (e.key === 'Enter') {
-v.src = urlInput.value.trim();
-playSafe();
-}
+  if (e.key === 'Enter') {
+    v.src = urlInput.value.trim();
+    playSafe();
+  }
 });
 useBtn.addEventListener('click', ()=>{
-let src = v.currentSrc || v.src || urlInput.value.trim();
-if (!src) { alert('먼저 동영상을 선택/재생해 주세요.'); return; }
-window.opener?.postMessage({ type:'externalVideo', url: src }, '*');
+  let src = v.currentSrc || v.src || urlInput.value.trim();
+  if (!src) { alert('먼저 동영상을 선택/재생해 주세요.'); return; }
+  window.opener?.postMessage({ type:'externalVideo', url: src }, '*');
 });
 backBtn.addEventListener('click', ()=>{
-window.opener?.postMessage({ type:'restoreWebcam' }, '*');
+  window.opener?.postMessage({ type:'restoreWebcam' }, '*');
 });
 document.addEventListener('click', playSafe);
 </script>
@@ -1142,30 +1173,30 @@ document.addEventListener('click', playSafe);
 }
 
 // 자동 새창 열기
-function openVideoWindowAuto() {
-const w = 560, h = 420;
-const left = Math.max(0, (screen.width - w) / 2);
-const top = Math.max(0, (screen.height - h) / 2);
-const features = `width=${w},height=${h},left=${left},top=${top},resizable=yes,menubar=no,toolbar=no,location=no,status=no`;
-videoWin = window.open('', 'kim_external_video', features);
-if (!videoWin || videoWin.closed) return false;
-const html = buildVideoPickerHTML();
-try {
-videoWin.document.open();
-videoWin.document.write(html);
-videoWin.document.close();
-} catch (e) {
-console.warn('비디오 창 HTML 주입 실패:', e);
-}
-return true;
+function openVideoWindowAuto(){
+  const w = 560, h = 420;
+  const left = Math.max(0, (screen.width - w) / 2);
+  const top  = Math.max(0, (screen.height - h) / 2);
+  const features = `width=${w},height=${h},left=${left},top=${top},resizable=yes,menubar=no,toolbar=no,location=no,status=no`;
+  videoWin = window.open('', 'kim_external_video', features);
+  if (!videoWin || videoWin.closed) return false;
+  const html = buildVideoPickerHTML();
+  try{
+    videoWin.document.open();
+    videoWin.document.write(html);
+    videoWin.document.close();
+  }catch(e){
+    console.warn('비디오 창 HTML 주입 실패:', e);
+  }
+  return true;
 }
 
-// 팝업 차단 시 상단 띠 배너 제공
-function showPopupRetryBanner() {
-if (document.getElementById('popup-retry-banner')) return;
-const bar = document.createElement('div');
-bar.id = 'popup-retry-banner';
-bar.innerHTML = `
+// 팝업 차단 시 상단 배너
+function showPopupRetryBanner(){
+  if (document.getElementById('popup-retry-banner')) return;
+  const bar = document.createElement('div');
+  bar.id = 'popup-retry-banner';
+  bar.innerHTML = `
 <div style="
 position:fixed; inset:auto 0 0 0; top:0; background:#141417; color:#eaeaea;
 border-bottom:1px solid #2a2a33; padding:10px 12px; display:flex; gap:10px;
@@ -1174,318 +1205,44 @@ align-items:center; z-index:99999; font:14px/1.45 -apple-system,BlinkMacSystemFo
 <span style="opacity:.8">브라우저가 자동 창 열기를 막았어. 아래 버튼으로 한 번만 허용해줘.</span>
 <button id="popup-retry-btn" style="margin-left:auto;background:#00d0ff;color:#000;border:0;padding:8px 12px;border-radius:10px;font-weight:700;cursor:pointer">열기</button>
 </div>`;
-document.body.appendChild(bar);
-const btn = document.getElementById('popup-retry-btn');
-btn.addEventListener('click', ()=>{
-const ok = openVideoWindowAuto();
-if (ok) bar.remove();
-else alert('창을 열 수 없었어. 브라우저 팝업 허용을 확인해줘.');
-});
+  document.body.appendChild(bar);
+  const btn = document.getElementById('popup-retry-btn');
+  btn.addEventListener('click', ()=>{
+    const ok = openVideoWindowAuto();
+    if (ok) bar.remove();
+    else alert('창을 열 수 없었어. 브라우저 팝업 허용을 확인해줘.');
+  });
 }
 
 // 부모-자식 메시지 처리
 window.addEventListener('message', (ev)=>{
-if (!ev?.data) return;
-if (ev.data.type === 'externalVideo' && ev.data.url) {
-useExternalVideo(ev.data.url);
-} else if (ev.data.type === 'restoreWebcam') {
-restoreWebcam();
-}
+  if (!ev?.data) return;
+  if (ev.data.type === 'externalVideo' && ev.data.url){
+    useExternalVideo(ev.data.url);
+  } else if (ev.data.type === 'restoreWebcam'){
+    restoreWebcam();
+  }
 });
 
-// 창이 닫혔으면 자동 재생성 시도 (포커스 시 1회)
+// 창이 닫혔으면 포커스 때 한 번 더 시도
 let _videoWinCheckArmed = false;
 window.addEventListener('focus', ()=>{
-if (_videoWinCheckArmed && (!videoWin || videoWin.closed)) {
-const ok = openVideoWindowAuto();
-if (!ok) showPopupRetryBanner();
-_videoWinCheckArmed = false;
-}
+  if (_videoWinCheckArmed && (!videoWin || videoWin.closed)){
+    const ok = openVideoWindowAuto();
+    if (!ok) showPopupRetryBanner();
+    _videoWinCheckArmed = false;
+  }
 });
 
 // DOM 로드시 자동 오픈 시도
 (function bootExternalWindowAuto(){
-const tryOpen = openVideoWindowAuto();
-if (!tryOpen) {
-showPopupRetryBanner();
-_videoWinCheckArmed = true;
-}
+  const tryOpen = openVideoWindowAuto();
+  if (!tryOpen){
+    showPopupRetryBanner();
+    _videoWinCheckArmed = true;
+  }
 })();
+
 // =========================
 // ▶ 끝
 // =========================
-
-[index.html]
-<!DOCTYPE html>
-<html lang="ko">
-<head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>RIP - KIM</title>
-
-<!-- 기본 메타 -->
-<meta name="title" content="RIP - KIM">
-<meta name="description" content="고인과 대화하는 미니멀 챗 인터페이스.">
-
-<!-- Open Graph / Discord / Kakao -->
-<meta property="og:type" content="website">
-<meta property="og:url" content="https://YOUR-DOMAIN.example.com/">
-<meta property="og:title" content="RIP - KIM">
-<meta property="og:site_name" content="RIP - KIM">
-<meta property="og:description" content="고인과 대화하는 미니멀 챗 인터페이스.">
-<meta property="og:image" content="https://YOUR-DOMAIN.example.com/og-image.png">
-<meta property="og:image:width" content="1200">
-<meta property="og:image:height" content="630">
-
-<!-- Twitter Card -->
-<meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:url" content="https://YOUR-DOMAIN.example.com/">
-<meta name="twitter:title" content="RIP - KIM">
-<meta name="twitter:description" content="고인과 대화하는 미니멀 챗 인터페이스.">
-<meta name="twitter:image" content="https://YOUR-DOMAIN.example.com/og-image.png">
-
-<!-- PWA / 브라우저 꾸미기 (선택) -->
-<meta name="theme-color" content="#000000">
-<link rel="icon" href="/favicon.png">
-<!-- <link rel="manifest" href="/manifest.json"> -->
-
-<!-- Pixel-ish font -->
-<link rel="preconnect" href="https://fonts.googleapis.com" />
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet" />
-
-<link rel="stylesheet" href="styles.css?v=3" />
-</head>
-<body>
-<div id="app">
-<main id="stage">
-<!-- 중앙 초상: ASCII 전용 -->
-<pre id="portrait"></pre>
-
-<!-- AI 대사 박스 -->
-<section id="ai-box" class="box" aria-live="polite">
-<div id="chat-box"></div>
-</section>
-
-<!-- 입력 박스 -->
-<section id="user-box" class="box box-input">
-<input id="user-input" type="text" placeholder="고인에게 말을 걸어주세요" autocomplete="off" />
-<button id="send-button" class="btn">SEND</button>
-</section>
-</main>
-</div>
-
-
-
-<!-- 캐시 무효화를 위해 쿼리스트링 버전 붙임 -->
-<script src="chat.js?v=3"></script>
-</body>
-</html>
-
-[styles.css]
-@font-face {
-font-family: 'DungGeunMo';
-src: url('./fonts/DungGeunMo.woff2') format('woff2');
-font-weight: normal;
-font-style: normal;
-}
-
-:root {
---black: #000;
---white: #fff;
---border: #fff;
---green: #00ff00; /* 건희 대사색 */
-}
-
-* { box-sizing: border-box; }
-
-html, body {
-height: 100%;
-margin: 0;
-background: var(--black);
-color: var(--white);
-font-family: 'DungGeunMo', monospace;
-}
-
-#app {
-min-height: 100dvh;
-display: grid;
-place-items: center;
-}
-
-#stage {
-display: grid;
-grid-template-rows: auto auto auto;
-gap: 16px;
-justify-items: center;
-width: min(720px, 92vw);
-}
-
-/* (이미지 전용) — 지금은 <pre>를 쓰므로 적용되지 않음 */
-img#portrait {
-display: block;
-width: 250px;
-height: 250px;
-image-rendering: pixelated;
-filter: grayscale(1) contrast(1.05);
-}
-
-/* 공용 박스 (대화/입력) */
-.box {
-width: 100%;
-border: 3px solid var(--border);
-background: var(--black);
-padding: 14px;
-border-radius: 4px;
-}
-
-#ai-box {
-min-height: 140px;
-max-height: 240px;
-overflow-y: auto;
-}
-
-#chat-box {
-display: flex;
-flex-direction: column;
-gap: 10px;
-white-space: pre-wrap;
-word-break: keep-all;
-overflow-y: auto;
-max-height: 200px;
-}
-
-#chat-box .ai { color: var(--green); }
-#chat-box .user {
-color: var(--white);
-opacity: 0.9;
-text-align: right;
-}
-
-/* 입력 박스 */
-.box-input {
-display: flex;
-gap: 10px;
-align-items: center;
-}
-
-#user-input {
-flex: 1;
-min-width: 0;
-border: 2px solid var(--border);
-background: var(--black);
-color: var(--white);
-padding: 10px;
-font-size: 12px;
-}
-
-.btn {
-border: 2px solid var(--border);
-background: transparent;
-color: var(--white);
-padding: 10px 14px;
-cursor: pointer;
-}
-.btn:hover { transform: translateY(-2px); }
-
-/* 로딩 점 */
-.loading {
-display: flex;
-gap: 6px;
-justify-content: center;
-}
-.loading .dot {
-width: 6px; height: 6px;
-background: var(--white);
-animation: blink 1s infinite alternate;
-}
-.loading .dot:nth-child(2) { animation-delay: .2s; }
-.loading .dot:nth-child(3) { animation-delay: .4s; }
-@keyframes blink { 
-to { 
-opacity: .25; 
-transform: translateY(-2px); 
-} 
-}
-
-/* 작은 화면 대응 */
-@media (max-width: 420px) {
-#stage { gap: 12px; }
-.box { padding: 12px; }
-#user-input, .btn { padding: 9px 12px; }
-}
-
-/* ====== 초상 ASCII 전용 ====== */
-/* 테두리(선) 제거! */
-#portrait {
-border: none; /* ✅ 선 제거 */
-background: var(--black);
-color: var(--white);
-padding: 0; /* 박스 느낌 없애려면 0 */
-border-radius: 0;
-
-display: block;
-margin: 0 auto; /* 중앙 배치 */
-max-width: 100%;
-
-image-rendering: auto;
-filter: none;
-}
-
-/* 전체 노출 + 중앙 정렬(내용 폭 기준) */
-pre#portrait {
-white-space: pre;
-overflow: auto;
-max-height: none;
-width: auto;
-height: auto;
-display: inline-block; /* 내용 폭에 맞춤 */
-text-align: left;
-
-font-family: 'DungGeunMo', monospace;
-font-size: 5px; /* 필요시 4–8px로 조절 */
-line-height: 1.05;
-}
-
-/* ====== 카메라 프리뷰 (좌측 상단 고정) ====== */
-#cam-container {
-position: fixed; /* 🔹 레이아웃에 영향을 안 주도록 고정 */
-top: 10px;
-left: 10px;
-width: 180px;
-z-index: 1000;
-
-display: flex;
-flex-direction: column;
-align-items: center;
-gap: 4px;
-
-background: rgba(0, 0, 0, 0.7);
-border: 1px solid var(--border);
-padding: 6px;
-border-radius: 6px;
-}
-
-#cam-preview {
-width: 100%;
-height: auto;
-border-radius: 4px;
-background: #000;
-object-fit: cover;
-}
-
-#face-status,
-#eye-direction {
-font-size: 11px;
-color: #cccccc;
-text-align: center;
-}
-
-/* 모바일에서 너무 작으면 살짝 줄이기 */
-@media (max-width: 420px) {
-#cam-container {
-width: 140px;
-padding: 4px;
-}
-}
-
