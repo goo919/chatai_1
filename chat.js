@@ -1055,12 +1055,46 @@ window.addEventListener('DOMContentLoaded', () => {
   }
 });
 
+// 전시 모드 단축키: ⌘ + Enter (Mac 기준)
+window.addEventListener('keydown', (e)=>{
+  // metaKey = Cmd (Mac), Ctrl+Enter 쓰고 싶으면 e.ctrlKey 로 바꿔도 됨
+  if (e.key === 'Enter' && e.metaKey){
+    e.preventDefault();
+    setExhibitionMode(!EXHIBITION_MODE);
+  }
+});
+
+
 /* =========================
 ▶ 자동 비디오 창 (메인 인식 소스 교체)
 ========================= */
 let EXTERNAL_FEED = false;
 let originalStream = null;
 let videoWin = null;
+
+let EXHIBITION_MODE = false;
+
+function setExhibitionMode(on){
+  EXHIBITION_MODE = !!on;
+
+  // 메인창 카메라 프리뷰 숨기기 / 다시 보이기
+  setCameraPreviewEnabled(!EXHIBITION_MODE);
+
+  // 팝업창에 전시 모드 상태 전달
+  if (videoWin && !videoWin.closed){
+    try{
+      videoWin.postMessage({
+        type: 'exhibitionMode',
+        on: EXHIBITION_MODE
+      }, '*');
+    }catch(e){
+      console.warn('exhibitionMode 전송 실패:', e);
+    }
+  }
+
+  console.log('Exhibition mode:', EXHIBITION_MODE ? 'ON' : 'OFF');
+}
+
 
 function stopCurrentStream(){
   try{
@@ -1108,6 +1142,7 @@ async function restoreWebcam(){
 }
 
 // 팝업(새창) HTML  ── ASCII 비디오 렌더링 통합 버전
+// 팝업(새창) HTML  ── ASCII 비디오 렌더링 + 플레이리스트 + 전시 모드
 function buildVideoPickerHTML(){
   return `<!DOCTYPE html>
 <html lang="ko">
@@ -1201,15 +1236,27 @@ header button:hover{
   font-family: -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,
                "Apple SD Gothic Neo","Noto Sans KR","맑은 고딕",sans-serif;
 }
+
+/* =========================
+   전시 모드 (EXHIBITION)
+   - 헤더/힌트 숨김, ASCII만 풀 스크린
+========================= */
+body.exhibition header,
+body.exhibition .hint {
+  display:none !important;
+}
+body.exhibition #ascii {
+  height:100vh;
+}
 </style>
 </head>
 <body>
 
 <header>
   <input id="url" type="text" placeholder="동영상 URL 붙여넣기 후 Enter" />
-  <input id="file-input" type="file" accept="video/*" />
+  <input id="file-input" type="file" accept="video/*" multiple />
   <button id="play-btn">재생 / 다시 시작</button>
-  <span id="status">파일을 선택하거나 URL을 입력해 주세요.</span>
+  <span id="status">파일을 여러 개 선택하거나 URL을 입력해 주세요.</span>
 </header>
 
 <!-- 원본 비디오 (화면에는 안 보이게) -->
@@ -1218,11 +1265,11 @@ header button:hover{
 <!-- ASCII 출력 영역 -->
 <pre id="ascii"></pre>
 
-<div class="hint">* URL 은 CORS/자동재생에 막힐 수 있어요. 파일 선택이 제일 안전함.</div>
+<div class="hint">* 여러 영상 선택 가능. 끝나면 랜덤으로 다음 영상 재생. (URL은 단일 재생)</div>
 
 <script>
 // =========================
-// video-ascii.js 내용을 팝업 내부에 통합
+// video-ascii.js + 플레이리스트 + 전시 모드
 // =========================
 (function(){
   const fileInput = document.getElementById('file-input');
@@ -1242,6 +1289,14 @@ header button:hover{
   // 현재 해상도 (문자 단위)
   let COLS = 140;
   let ROWS = 70;
+
+  // 플레이리스트 (파일 기반)
+  let fileList   = [];  // File[]
+  let objectUrls = [];  // string[]
+  let currentIdx = -1;
+
+  // URL 기반 단일 재생 플래그
+  let isUrlMode  = false;
 
   // 화면 크기 + 실제 폰트 크기를 기준으로 COLS/ROWS 자동 계산
   function computeAsciiSize() {
@@ -1275,45 +1330,68 @@ header button:hover{
   resizeAsciiResolution();
   window.addEventListener('resize', resizeAsciiResolution);
 
-  // 선택된 비디오 파일 URL
-  let objectUrl = null;
-
-  // 파일 선택 시
-  fileInput.addEventListener('change', () => {
-    const file = fileInput.files && fileInput.files[0];
-    if (!file) return;
-
-    if (objectUrl) {
-      URL.revokeObjectURL(objectUrl);
-      objectUrl = null;
+  function cleanupObjectUrls(){
+    if (objectUrls && objectUrls.length){
+      objectUrls.forEach(u => URL.revokeObjectURL(u));
     }
+    objectUrls = [];
+  }
 
-    objectUrl = URL.createObjectURL(file);
-    video.src = objectUrl;
-    statusEl.textContent = '파일 로드됨: ' + file.name;
+  // 현재 index의 파일 재생 준비
+  function loadCurrentFromPlaylist(){
+    if (!fileList.length || currentIdx < 0 || currentIdx >= fileList.length) return false;
+    const url = objectUrls[currentIdx];
+    if (!url) return false;
+    video.src = url;
+    statusEl.textContent =
+      '플레이리스트 재생: ' +
+      fileList[currentIdx].name +
+      ' (' + (currentIdx+1) + '/' + fileList.length + ')';
+    isUrlMode = false;
+    return true;
+  }
+
+  // 파일 선택 시 (여러 개 가능)
+  fileInput.addEventListener('change', () => {
+    const files = fileInput.files ? Array.from(fileInput.files) : [];
+    if (!files.length) return;
+
+    cleanupObjectUrls();
+    fileList = files;
+    objectUrls = files.map(f => URL.createObjectURL(f));
+    currentIdx = 0;
+
+    loadCurrentFromPlaylist();
   });
 
-  // URL 입력 시 (Enter)
+  // URL 입력 시 (Enter) → 단일 재생 모드
   if (urlInput){
     urlInput.addEventListener('keydown', (e)=>{
       if (e.key === 'Enter') {
         const url = urlInput.value.trim();
         if (!url) return;
-        if (objectUrl) {
-          URL.revokeObjectURL(objectUrl);
-          objectUrl = null;
-        }
+        // URL 모드에서는 기존 플레이리스트는 그대로 두되,
+        // 현재는 URL을 단일 재생 대상으로 설정
         video.src = url;
-        statusEl.textContent = 'URL 로드 시도 중...';
+        statusEl.textContent = 'URL 재생 준비: ' + url;
+        isUrlMode = true;
       }
     });
   }
 
   // 재생 버튼
   playBtn.addEventListener('click', async () => {
-    if (!video.src) {
-      alert('먼저 파일을 선택하거나 URL을 입력해 주세요.');
-      return;
+    if (!video.src){
+      // 아직 아무 것도 설정 안 됐으면, 플레이리스트가 있으면 그걸 로드
+      if (fileList.length){
+        if (!loadCurrentFromPlaylist()){
+          alert('재생할 영상을 찾을 수 없어요.');
+          return;
+        }
+      } else {
+        alert('먼저 파일을 선택하거나 URL을 입력해 주세요.');
+        return;
+      }
     }
 
     try {
@@ -1338,12 +1416,50 @@ header button:hover{
       // 처음부터 다시 재생
       video.currentTime = 0;
       await video.play();
-      statusEl.textContent = '재생 중 (ASCII + 오디오)...';
+      statusEl.textContent = isUrlMode
+        ? 'URL 재생 중 (ASCII + 오디오)...'
+        : '재생 중 (ASCII + 오디오)...';
 
     } catch (e) {
       console.error(e);
       statusEl.textContent = '재생 오류: ' + (e.message || e);
     }
+  });
+
+  // 비디오가 끝났을 때: 플레이리스트 모드라면 랜덤 다음 재생
+  video.addEventListener('ended', () => {
+    if (isUrlMode) {
+      // URL 단일 모드는 그냥 멈춤
+      statusEl.textContent = '재생 완료 (URL 모드).';
+      return;
+    }
+
+    if (!fileList.length){
+      statusEl.textContent = '재생 완료.';
+      return;
+    }
+
+    if (fileList.length === 1){
+      // 한 개 뿐이면 그냥 반복 재생
+      video.currentTime = 0;
+      video.play().catch(()=>{});
+      statusEl.textContent =
+        '반복 재생: ' +
+        fileList[0].name +
+        ' (1/1)';
+      return;
+    }
+
+    // 랜덤으로 다음 영상 선택 (현재 index와 다르게)
+    let next = currentIdx;
+    while (next === currentIdx){
+      next = Math.floor(Math.random() * fileList.length);
+    }
+    currentIdx = next;
+
+    if (!loadCurrentFromPlaylist()) return;
+    video.currentTime = 0;
+    video.play().catch(()=>{});
   });
 
   // 메인 루프 (FPS 제한)
@@ -1401,12 +1517,35 @@ header button:hover{
 
     asciiEl.textContent = ascii;
   }
+
+  // =========================
+  // 전시 모드 메시지 수신
+  // =========================
+  window.addEventListener('message', (ev)=>{
+    if (!ev?.data) return;
+    if (ev.data.type === 'exhibitionMode'){
+      const on = !!ev.data.on;
+      document.body.classList.toggle('exhibition', on);
+    }
+  });
+
+  // 팝업에서도 Cmd+Enter 누르면 전시 모드 토글 요청 (옵셔널)
+  window.addEventListener('keydown', (e)=>{
+    if (e.key === 'Enter' && e.metaKey){
+      if (window.opener){
+        try{
+          window.opener.postMessage({ type:'toggleExhibitionRequest' }, '*');
+        }catch(e){}
+      }
+    }
+  });
 })();
 </script>
 
 </body>
 </html>`;
 }
+
 
 
 
@@ -1426,8 +1565,17 @@ function openVideoWindowAuto(){
   }catch(e){
     console.warn('비디오 창 HTML 주입 실패:', e);
   }
+
+  // 이미 전시 모드였다면, 새 창에도 바로 적용
+  if (EXHIBITION_MODE){
+    try{
+      videoWin.postMessage({ type:'exhibitionMode', on:true }, '*');
+    }catch(e){}
+  }
+
   return true;
 }
+
 
 // 팝업 차단 시 상단 배너
 function showPopupRetryBanner(){
