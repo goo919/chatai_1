@@ -1107,84 +1107,307 @@ async function restoreWebcam(){
   }catch{}
 }
 
-// 팝업(새창) HTML
+// 팝업(새창) HTML  ── ASCII 비디오 렌더링 통합 버전
 function buildVideoPickerHTML(){
   return `<!DOCTYPE html>
 <html lang="ko">
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>외부 영상 공급</title>
+<title>ASCII VIDEO</title>
 <style>
-:root{ color-scheme: dark; }
-body{
-  margin:0; background:#0b0b0d; color:#eaeaea;
-  font:14px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",
-       Roboto,"Helvetica Neue",Arial,"Apple SD Gothic Neo",
-       "Noto Sans KR","맑은 고딕",sans-serif;
+:root {
+  color-scheme: dark;
 }
-.bar{
-  padding:10px; background:#141417; display:flex; gap:8px;
-  align-items:center; position:sticky; top:0; z-index:2;
-  border-bottom:1px solid #1f1f25;
+html, body {
+  margin: 0;
+  padding: 0;
+  background: #000;
+  color: #fff;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  font-family: monospace;
 }
-.bar input[type="text"]{
-  flex:1; background:#0b0b0d; color:#eee;
-  border:1px solid #2a2a33; padding:8px 10px; border-radius:10px;
+body {
+  display: flex;
+  flex-direction: column;
 }
-.bar input[type="file"]{
+header {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  padding: 10px;
+  z-index: 10;
+  background: rgba(0,0,0,0.8);
+  font-family: -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,
+               "Apple SD Gothic Neo","Noto Sans KR","맑은 고딕",sans-serif;
+  font-size: 13px;
+}
+header input[type="text"]{
+  flex:1;
+  background:#0b0b0d;
+  color:#eee;
+  border:1px solid #2a2a33;
+  padding:6px 8px;
+  border-radius:8px;
+}
+header input[type="file"]{
   color:#bbb;
+  font-size:12px;
 }
-video{
-  width:100%; height:calc(100vh - 58px); background:#000;
-  object-fit:contain; display:block;
+header button{
+  background:#00d0ff;
+  border:0;
+  color:#000;
+  padding:6px 10px;
+  border-radius:8px;
+  font-weight:600;
+  cursor:pointer;
 }
+header button:hover{
+  filter:brightness(1.1);
+}
+#status{
+  min-width:140px;
+  font-size:12px;
+  opacity:0.85;
+}
+
+#ascii {
+  white-space: pre;
+  font-family: monospace;
+  font-size: 8px;   /* 글자 크기로 밀도 조절 */
+  line-height: 1.1;
+  flex: 1;
+  overflow: hidden;
+  padding: 0;
+  margin: 0;
+  background: #000;
+}
+
+/* 원본 비디오(숨김) */
+#video {
+  display: none;
+}
+
 .hint{
-  position:absolute; right:10px; bottom:10px;
-  opacity:0.7; font-size:12px;
+  position:absolute;
+  right:10px;
+  bottom:10px;
+  opacity:0.6;
+  font-size:11px;
+  font-family: -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,
+               "Apple SD Gothic Neo","Noto Sans KR","맑은 고딕",sans-serif;
 }
 </style>
 </head>
 <body>
 
-<div class="bar">
+<header>
   <input id="url" type="text" placeholder="동영상 URL 붙여넣기 후 Enter" />
-  <input id="file" type="file" accept="video/*" />
-</div>
+  <input id="file-input" type="file" accept="video/*" />
+  <button id="play-btn">재생 / 다시 시작</button>
+  <span id="status">파일을 선택하거나 URL을 입력해 주세요.</span>
+</header>
 
-<video id="v" controls playsinline></video>
-<div class="hint">* URL 은 CORS/자동재생 제한 있을 수 있어요. 파일 선택이 가장 안전함.</div>
+<!-- 원본 비디오 (화면에는 안 보이게) -->
+<video id="video" playsinline></video>
+
+<!-- ASCII 출력 영역 -->
+<pre id="ascii"></pre>
+
+<div class="hint">* URL 은 CORS/자동재생에 막힐 수 있어요. 파일 선택이 제일 안전함.</div>
 
 <script>
-const v = document.getElementById('v');
-const urlInput = document.getElementById('url');
-const fileInput = document.getElementById('file');
-let currentBlobUrl = null;
+// =========================
+// video-ascii.js 내용을 팝업 내부에 통합
+// =========================
+(function(){
+  const fileInput = document.getElementById('file-input');
+  const playBtn   = document.getElementById('play-btn');
+  const statusEl  = document.getElementById('status');
+  const urlInput  = document.getElementById('url');
+  const video     = document.getElementById('video');
+  const asciiEl   = document.getElementById('ascii');
 
-function playSafe(){ v.play().catch(()=>{}); }
+  // 메모리용 캔버스 (DOM에 안 붙임)
+  const canvas = document.createElement('canvas');
+  const ctx    = canvas.getContext('2d', { willReadFrequently: true });
 
-fileInput.addEventListener('change', () => {
-  if (currentBlobUrl) URL.revokeObjectURL(currentBlobUrl);
-  const f = fileInput.files && fileInput.files[0];
-  if (!f) return;
-  currentBlobUrl = URL.createObjectURL(f);
-  v.src = currentBlobUrl;
-  playSafe();
-});
+  // ASCII 문자 세트 (어두움 → 밝음)
+  const CHAR_SET = " .:-=+*#%@ 사망 원인 질병 손상 검안 진단 번호 직인 Dx Rx Tx ICD COD DNR 410 VOID";
 
-urlInput.addEventListener('keydown', (e)=>{
-  if (e.key === 'Enter') {
-    v.src = urlInput.value.trim();
-    playSafe();
+  // 현재 해상도 (문자 단위)
+  let COLS = 140;
+  let ROWS = 70;
+
+  // 화면 크기 + 실제 폰트 크기를 기준으로 COLS/ROWS 자동 계산
+  function computeAsciiSize() {
+    const styles = window.getComputedStyle(asciiEl);
+    const fontSize   = parseFloat(styles.fontSize)   || 7;               // px
+    const lineHeight = parseFloat(styles.lineHeight) || fontSize * 1.1;  // px
+    const fontWidth  = fontSize * 0.6; // monospace 글자 가로 폭 대략 비율
+
+    const header = document.querySelector('header');
+    const headerH = header ? header.offsetHeight : 0;
+
+    const availableW = window.innerWidth;
+    const availableH = window.innerHeight - headerH;
+
+    const cols = Math.max(40, Math.floor(availableW / fontWidth));
+    const rows = Math.max(20, Math.floor(availableH / lineHeight));
+
+    return { cols, rows };
   }
-});
 
-document.addEventListener('click', playSafe);
+  // 캔버스 & 해상도 초기화 + 리사이즈 대응
+  function resizeAsciiResolution() {
+    const size = computeAsciiSize();
+    COLS = size.cols;
+    ROWS = size.rows;
+
+    canvas.width  = COLS;
+    canvas.height = ROWS;
+  }
+
+  resizeAsciiResolution();
+  window.addEventListener('resize', resizeAsciiResolution);
+
+  // 선택된 비디오 파일 URL
+  let objectUrl = null;
+
+  // 파일 선택 시
+  fileInput.addEventListener('change', () => {
+    const file = fileInput.files && fileInput.files[0];
+    if (!file) return;
+
+    if (objectUrl) {
+      URL.revokeObjectURL(objectUrl);
+      objectUrl = null;
+    }
+
+    objectUrl = URL.createObjectURL(file);
+    video.src = objectUrl;
+    statusEl.textContent = '파일 로드됨: ' + file.name;
+  });
+
+  // URL 입력 시 (Enter)
+  if (urlInput){
+    urlInput.addEventListener('keydown', (e)=>{
+      if (e.key === 'Enter') {
+        const url = urlInput.value.trim();
+        if (!url) return;
+        if (objectUrl) {
+          URL.revokeObjectURL(objectUrl);
+          objectUrl = null;
+        }
+        video.src = url;
+        statusEl.textContent = 'URL 로드 시도 중...';
+      }
+    });
+  }
+
+  // 재생 버튼
+  playBtn.addEventListener('click', async () => {
+    if (!video.src) {
+      alert('먼저 파일을 선택하거나 URL을 입력해 주세요.');
+      return;
+    }
+
+    try {
+      // Safari에서 메타데이터 로딩 기다리기
+      if (video.readyState < 2) {
+        await new Promise(res => {
+          const handler = function(){
+            video.removeEventListener('loadedmetadata', handler);
+            res();
+          };
+          video.addEventListener('loadedmetadata', handler);
+        });
+      }
+
+      // 🔊 소리 켜기
+      video.muted  = false;
+      video.volume = 1.0;
+
+      // 해상도 다시 맞춰주기 (창 크기 변경 후 재생하는 경우 대비)
+      resizeAsciiResolution();
+
+      // 처음부터 다시 재생
+      video.currentTime = 0;
+      await video.play();
+      statusEl.textContent = '재생 중 (ASCII + 오디오)...';
+
+    } catch (e) {
+      console.error(e);
+      statusEl.textContent = '재생 오류: ' + (e.message || e);
+    }
+  });
+
+  // 메인 루프 (FPS 제한)
+  const ASCII_FPS = 15; // 살짝 올려서 조금 더 부드럽게
+  let lastTime = 0;
+
+  function loop(now) {
+    requestAnimationFrame(loop);
+
+    if (!video || video.paused || video.ended) return;
+
+    const delta = now - lastTime;
+    if (delta < 1000 / ASCII_FPS) return;
+    lastTime = now;
+
+    renderAsciiFrame();
+  }
+
+  requestAnimationFrame(loop);
+
+  // 한 프레임을 ASCII로 변환해서 출력
+  function renderAsciiFrame() {
+    if (!video.videoWidth || !video.videoHeight) return;
+
+    // 비디오 프레임을 캔버스에 축소해서 그리기
+    ctx.drawImage(video, 0, 0, COLS, ROWS);
+
+    const imageData = ctx.getImageData(0, 0, COLS, ROWS);
+    const data = imageData.data;
+
+    let ascii = '';
+
+    for (let y = 0; y < ROWS; y++) {
+      let row = '';
+      for (let x = 0; x < COLS; x++) {
+        const index = (y * COLS + x) * 4;
+        const r = data[index + 0];
+        const g = data[index + 1];
+        const b = data[index + 2];
+
+        // 더 자연스러운 명암을 위해 가중치 적용 (BT.601)
+        const luminance = 0.299 * r + 0.587 * g + 0.114 * b;
+
+        // 감마 보정으로 어두운/밝은 쪽 디테일 강조
+        const norm = Math.pow(luminance / 255, 0.8); // 0.8 < 1 → 콘트라스트↑
+
+        let charIndex = Math.floor(norm * (CHAR_SET.length - 1));
+        if (charIndex < 0) charIndex = 0;
+        if (charIndex >= CHAR_SET.length) charIndex = CHAR_SET.length - 1;
+
+        row += CHAR_SET[charIndex];
+      }
+      ascii += row + '\\n';
+    }
+
+    asciiEl.textContent = ascii;
+  }
+})();
 </script>
 
 </body>
 </html>`;
 }
+
 
 
 // 자동 새창 열기
