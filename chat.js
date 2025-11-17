@@ -1,3 +1,4 @@
+[chat.js]
 /* =========================
 RIP-KIM chat.js (Safari + 얼굴인식 하이브리드 + ASCII 완전 통합버전)
 - FaceDetector 우선 사용, 없으면 face-api.js 폴백
@@ -22,6 +23,33 @@ let conversationHistory = []; // [{role:'user'|'assistant', content:string}]
 let isSpeechEnabled = true;
 let userName = '';
 let isUserNameSet = false;
+
+// =========================
+// 🔊 건희 독백 스크립트
+// - 한 문장씩 말하게 만들 배열
+// =========================
+const MONO_LINES = [
+  "...여긴... 너무 조용해.",
+  "아무 소리도, 아무 바람도 없어.",
+  "처음엔 낯설었지. 하지만 곧 익숙해졌어.",
+  "익숙하다는 게 무섭더라. 아무것도 느껴지지 않는 상태에 익숙해지는 게...",
+  "여기가 ‘안락계’래. 낙원이라더라.",
+  "처음 들어왔을 때, 환하게 빛나는 복도가 있었어.",
+  "새하얗고, 끝이 없는 통로.",
+  "그 빛을 따라 걸으면 뭔가 달라질 줄 알았지.",
+  "근데… 그 끝엔 아무것도 없었어.",
+  "그냥, 나 자신만 있었어. 그리고 그 나조차... 낯설었어.",
+	// 👉 나머지 독백도 이런 식으로 한 문장씩 이어서 전부 넣으면 됨
+];
+
+const MONO_IDLE_MS = 15000; // 마지막 대화 후 15초 지나면 독백 시작
+
+let monoIndex = 0;           // 다음에 말할 문장 인덱스
+let isMonologueActive = false;
+let monoTimeout = null;
+
+let idleTimer = null;        // 유저가 아무것도 안 할 때 타이머
+let wasInterrupted = false;  // 유저 입력으로 독백이 끊겼는지 여부
 
 /* =========================
 모음 판별 (입 모양 토글용)
@@ -1007,6 +1035,10 @@ sendButton.addEventListener('click', async () => {
   const message = userInput.value.trim();
   if (!message) return;
 
+  // 👉 유저가 실제로 채팅을 보내면 독백은 즉시 중단
+  interruptMonologue();
+  resetIdleTimer(); // "마지막 활동 시점" 갱신
+
   renderMessage('user', message);
   userInput.value = '';
 
@@ -1022,10 +1054,14 @@ sendButton.addEventListener('click', async () => {
     pushHistory('assistant', ai);
     loading.remove();
     renderMessage('ai', ai);
+   // 👉 AI 답변까지 끝났으니, 이후 아무것도 안 하면 다시 독백 모드로 진입
+    resetIdleTimer();
   } catch (e){
+
     loading.remove();
     renderMessage('ai', e.message || '오류가 발생했어.');
-  }
+    resetIdleTimer();  
+}
 });
 
 window.addEventListener('DOMContentLoaded', () => {
@@ -1046,14 +1082,19 @@ window.addEventListener('DOMContentLoaded', () => {
     if (e.key === 'Enter') { e.preventDefault(); sendButton.click(); }
   });
 
-  // 깜빡임 + 카메라
+   // 깜빡임 + 카메라
   startBlinking();
   if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia){
     startCameraAndTracking();
   } else if (camStatus){
     camStatus.textContent = '카메라 미지원 브라우저';
   }
+
+  // 👉 유저가 아무 말도 안 하고 있으면,
+  //    MONO_IDLE_MS 뒤에 첫 독백을 시작하게 트리거
+  resetIdleTimer();
 });
+
 
 // 전시 모드 단축키: ⌘ + Enter (Mac 기준)
 window.addEventListener('keydown', (e)=>{
@@ -1063,6 +1104,79 @@ window.addEventListener('keydown', (e)=>{
     setExhibitionMode(!EXHIBITION_MODE);
   }
 });
+
+/* =========================
+건희 독백 제어
+========================= */
+
+// 특정 문장을 "김건희:" 말풍선으로 출력 (OpenAI 안 쓰고 로컬로만)
+function renderMonologueLine(text){
+  renderMessage('ai', text); // 기존 렌더 그대로 사용 (비프 + 입 모양 포함)
+}
+
+// 독백 한 줄 재생
+function playMonologueLine(){
+  if (!isMonologueActive) return;
+  if (monoIndex >= MONO_LINES.length){
+    // 더 이상 말할 문장이 없으면 독백 종료
+    isMonologueActive = false;
+    return;
+  }
+
+  const line = MONO_LINES[monoIndex++];
+  renderMonologueLine(line);
+
+  // 다음 문장까지 텀
+  clearTimeout(monoTimeout);
+  monoTimeout = setTimeout(()=>{
+    playMonologueLine();
+  }, 3000); // 3초 후 다음 문장 (원하면 값 조절)
+}
+
+// 현재 인덱스부터 독백 시작
+function startMonologueFromCurrent(){
+  if (isMonologueActive) return;
+  if (monoIndex >= MONO_LINES.length) return; // 다 말했으면 더 안 함
+  isMonologueActive = true;
+  playMonologueLine();
+}
+
+// 독백 강제 중단 (유저가 채팅할 때 호출)
+function interruptMonologue(){
+  if (!isMonologueActive && !monoTimeout) {
+    // 이미 안 하고 있었으면 플래그만 남김
+    wasInterrupted = false;
+    return;
+  }
+  isMonologueActive = false;
+  if (monoTimeout) {
+    clearTimeout(monoTimeout);
+    monoTimeout = null;
+  }
+  wasInterrupted = true;
+}
+
+// idle 타이머 관리 (유저가 마지막으로 “뭔가 한” 시점을 기준으로 재시작)
+function resetIdleTimer(){
+  if (idleTimer) clearTimeout(idleTimer);
+
+  idleTimer = setTimeout(()=>{
+    // 여기서 독백 시작 트리거
+    if (wasInterrupted && monoIndex < MONO_LINES.length){
+      // 이전에 독백하다가 끊겼다면, 이어 말하기 전에 한 줄 던짐
+      renderMonologueLine("더 궁금한 건 없는 거지..? 그럼 내 할 말 계속 할게.");
+    }
+    wasInterrupted = false;
+    startMonologueFromCurrent();
+  }, MONO_IDLE_MS);
+}
+
+// 페이지 떠날 때 정리 (선택)
+window.addEventListener('beforeunload', ()=>{
+  if (idleTimer) clearTimeout(idleTimer);
+  if (monoTimeout) clearTimeout(monoTimeout);
+});
+
 
 
 /* =========================
@@ -1632,3 +1746,4 @@ window.addEventListener('focus', ()=>{
 // =========================
 // ▶ 끝
 // =========================
+
