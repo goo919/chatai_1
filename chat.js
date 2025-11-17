@@ -1,4 +1,4 @@
-[chat.js]
+
 /* =========================
 RIP-KIM chat.js (Safari + 얼굴인식 하이브리드 + ASCII 완전 통합버전)
 - FaceDetector 우선 사용, 없으면 face-api.js 폴백
