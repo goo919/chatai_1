@@ -50,7 +50,86 @@ let monoTimeout = null;
 
 let idleTimer = null;        // 유저가 아무것도 안 할 때 타이머
 let wasInterrupted = false;  // 유저 입력으로 독백이 끊겼는지 여부
+// =========================
+// 🔔 독백 상태 인디케이터
+// =========================
+let monoIndicatorEl = null;
 
+function createMonologueIndicator(){
+  if (document.getElementById('mono-indicator')) return;
+
+  const box = document.createElement('div');
+  box.id = 'mono-indicator';
+
+  Object.assign(box.style, {
+    position: 'fixed',
+    right: '12px',
+    top: '12px',
+    padding: '6px 10px',
+    borderRadius: '999px',
+    background: 'rgba(0,0,0,0.7)',
+    color: '#f1f1f1',
+    fontSize: '11px',
+    fontFamily: '-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Apple SD Gothic Neo","Noto Sans KR","맑은 고딕",sans-serif',
+    border: '1px solid rgba(255,255,255,0.25)',
+    boxShadow: '0 2px 8px rgba(0,0,0,0.35)',
+    zIndex: '9998',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '6px',
+    pointerEvents: 'none',
+    opacity: '0.7'
+  });
+
+  // 작은 점(램프) 추가
+  const dot = document.createElement('span');
+  dot.id = 'mono-indicator-dot';
+  Object.assign(dot.style, {
+    width: '8px',
+    height: '8px',
+    borderRadius: '50%',
+    background: '#888',
+    flexShrink: '0'
+  });
+
+  const label = document.createElement('span');
+  label.id = 'mono-indicator-label';
+  label.textContent = '독백: 대기 중';
+
+  box.appendChild(dot);
+  box.appendChild(label);
+  document.body.appendChild(box);
+
+  monoIndicatorEl = box;
+  updateMonologueIndicator();
+}
+
+function updateMonologueIndicator(){
+  if (!monoIndicatorEl) return;
+
+  // 전시 모드일 땐 완전 숨김
+  if (EXHIBITION_MODE){
+    monoIndicatorEl.style.display = 'none';
+    return;
+  }
+
+  monoIndicatorEl.style.display = 'flex';
+
+  const dot   = document.getElementById('mono-indicator-dot');
+  const label = document.getElementById('mono-indicator-label');
+
+  if (isMonologueActive){
+    // 진행 중
+    label.textContent = '독백: 진행 중';
+    if (dot) dot.style.background = '#ff4d4f';
+    monoIndicatorEl.style.opacity = '1';
+  } else {
+    // 대기 상태
+    label.textContent = '독백: 대기 중';
+    if (dot) dot.style.background = '#888';
+    monoIndicatorEl.style.opacity = '0.6';
+  }
+}
 /* =========================
 모음 판별 (입 모양 토글용)
 ========================= */
@@ -1116,10 +1195,14 @@ function renderMonologueLine(text){
 
 // 독백 한 줄 재생
 function playMonologueLine(){
-  if (!isMonologueActive) return;
+  if (!isMonologueActive) {
+    updateMonologueIndicator();
+    return;
+  }
   if (monoIndex >= MONO_LINES.length){
     // 더 이상 말할 문장이 없으면 독백 종료
     isMonologueActive = false;
+    updateMonologueIndicator();
     return;
   }
 
@@ -1130,7 +1213,7 @@ function playMonologueLine(){
   clearTimeout(monoTimeout);
   monoTimeout = setTimeout(()=>{
     playMonologueLine();
-  }, 3000); // 3초 후 다음 문장 (원하면 값 조절)
+  }, 3000); // 3초 후 다음 문장
 }
 
 // 현재 인덱스부터 독백 시작
@@ -1138,14 +1221,16 @@ function startMonologueFromCurrent(){
   if (isMonologueActive) return;
   if (monoIndex >= MONO_LINES.length) return; // 다 말했으면 더 안 함
   isMonologueActive = true;
+  updateMonologueIndicator();
   playMonologueLine();
 }
+
 
 // 독백 강제 중단 (유저가 채팅할 때 호출)
 function interruptMonologue(){
   if (!isMonologueActive && !monoTimeout) {
-    // 이미 안 하고 있었으면 플래그만 남김
     wasInterrupted = false;
+    updateMonologueIndicator();
     return;
   }
   isMonologueActive = false;
@@ -1154,22 +1239,25 @@ function interruptMonologue(){
     monoTimeout = null;
   }
   wasInterrupted = true;
+  updateMonologueIndicator();
 }
 
 // idle 타이머 관리 (유저가 마지막으로 “뭔가 한” 시점을 기준으로 재시작)
 function resetIdleTimer(){
   if (idleTimer) clearTimeout(idleTimer);
 
+  // 독백은 아직 아니지만, 상태는 '대기 중'
+  updateMonologueIndicator();
+
   idleTimer = setTimeout(()=>{
-    // 여기서 독백 시작 트리거
     if (wasInterrupted && monoIndex < MONO_LINES.length){
-      // 이전에 독백하다가 끊겼다면, 이어 말하기 전에 한 줄 던짐
       renderMonologueLine("더 궁금한 건 없는 거지..? 그럼 내 할 말 계속 할게.");
     }
     wasInterrupted = false;
     startMonologueFromCurrent();
   }, MONO_IDLE_MS);
 }
+
 
 // 페이지 떠날 때 정리 (선택)
 window.addEventListener('beforeunload', ()=>{
@@ -1206,8 +1294,12 @@ function setExhibitionMode(on){
     }
   }
 
+  // 🔔 독백 인디케이터도 전시 모드에 맞춰 숨기기/보이기
+  updateMonologueIndicator();
+
   console.log('Exhibition mode:', EXHIBITION_MODE ? 'ON' : 'OFF');
 }
+
 
 
 function stopCurrentStream(){
