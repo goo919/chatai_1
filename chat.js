@@ -1071,7 +1071,7 @@ async function startCameraAndTracking(){
 /* =========================
 말하기 + 입/비프 동기화
 ========================= */
-function speakWithAnimation(targetEl, text, maxLength = 160, delay = 16){
+function speakWithAnimation(targetEl, text, maxLength = 160, delay = 16, onDone = null){
   resetMouth();
   splitAndTypeWriter(
     targetEl,
@@ -1082,27 +1082,30 @@ function speakWithAnimation(targetEl, text, maxLength = 160, delay = 16){
     () => {
       mouthOpen = false;
       showPortrait(); // 말 다 끝나면 입 다문 상태로
+      if (typeof onDone === 'function') onDone();
     }
   );
 }
 
+
 /* =========================
 메시지 렌더
 ========================= */
-function renderMessage(role, text){
+function renderMessage(role, text, onDone){
   const p = document.createElement('p');
   p.className = role;
   if (role === 'ai'){
     const span = document.createElement('span');
     p.appendChild(span);
     chatBox.appendChild(p);
-    speakWithAnimation(span, `김건희: ${text}`, 160, 16);
+    speakWithAnimation(span, `김건희: ${text}`, 160, 16, onDone);
   } else {
     p.textContent = `YOU: ${text}`;
     chatBox.appendChild(p);
   }
   chatBox.scrollTop = chatBox.scrollHeight;
 }
+
 
 /* =========================
 OpenAI API
@@ -1261,9 +1264,10 @@ window.addEventListener('keydown', (e)=>{
 ========================= */
 
 // 특정 문장을 "김건희:" 말풍선으로 출력 (OpenAI 안 쓰고 로컬로만)
-function renderMonologueLine(text){
-  renderMessage('ai', text); // 기존 렌더 그대로 사용 (비프 + 입 모양 포함)
+function renderMonologueLine(text, onDone){
+  renderMessage('ai', text, onDone); // (비프 + 입 모양 + 콜백)
 }
+
 
 // 독백 한 줄 재생
 function playMonologueLine(){
@@ -1271,10 +1275,26 @@ function playMonologueLine(){
     updateMonologueIndicator();
     return;
   }
+
   if (monoIndex >= MONO_LINES.length){
-    // 더 이상 말할 문장이 없으면 독백 종료
+    // 전체 독백 한 바퀴 끝
     isMonologueActive = false;
     updateMonologueIndicator();
+
+    // 이전 재시작 타이머 있으면 정리
+    if (monoRestartTimer) {
+      clearTimeout(monoRestartTimer);
+      monoRestartTimer = null;
+    }
+
+    // 30초 뒤, 방해받지 않았다면 처음부터 다시 독백 시작
+    monoRestartTimer = setTimeout(()=>{
+      if (!isMonologueActive && !wasInterrupted){
+        monoIndex = 0;
+        startMonologueFromCurrent();
+      }
+    }, 30000); // 30초
+
     return;
   }
 
@@ -1288,14 +1308,23 @@ function playMonologueLine(){
   }, 3000); // 3초 후 다음 문장
 }
 
+
 // 현재 인덱스부터 독백 시작
 function startMonologueFromCurrent(){
   if (isMonologueActive) return;
-  if (monoIndex >= MONO_LINES.length) return; // 다 말했으면 더 안 함
+  if (monoIndex >= MONO_LINES.length) return;
+
+  // 재시작 타이머가 걸려 있었다면 취소
+  if (monoRestartTimer){
+    clearTimeout(monoRestartTimer);
+    monoRestartTimer = null;
+  }
+
   isMonologueActive = true;
   updateMonologueIndicator();
   playMonologueLine();
 }
+
 
 
 // 독백 강제 중단 (유저가 채팅할 때 호출)
@@ -1310,9 +1339,14 @@ function interruptMonologue(){
     clearTimeout(monoTimeout);
     monoTimeout = null;
   }
+  if (monoRestartTimer){
+    clearTimeout(monoRestartTimer);
+    monoRestartTimer = null;
+  }
   wasInterrupted = true;
   updateMonologueIndicator();
 }
+
 
 // idle 타이머 관리 (유저가 마지막으로 “뭔가 한” 시점을 기준으로 재시작)
 function resetIdleTimer(){
@@ -1323,19 +1357,33 @@ function resetIdleTimer(){
 
   idleTimer = setTimeout(()=>{
     if (wasInterrupted && monoIndex < MONO_LINES.length){
-      renderMonologueLine("더 궁금한 건 없는 거지..? 그럼 내 할 말 계속 할게.");
+      // “더 궁금한 건 없는 거지..?” 먼저 다 치고,
+      // 1초 정도 쉬었다가 계속 독백 이어가기
+      wasInterrupted = false;
+      renderMonologueLine(
+        "더 궁금한 건 없는 거지..? 그럼 내 할 말 계속 할게.",
+        () => {
+          setTimeout(()=>{
+            startMonologueFromCurrent();
+          }, 1000); // 1초 쉬고 다음 문장
+        }
+      );
+    } else {
+      wasInterrupted = false;
+      startMonologueFromCurrent();
     }
-    wasInterrupted = false;
-    startMonologueFromCurrent();
   }, MONO_IDLE_MS);
 }
+
 
 
 // 페이지 떠날 때 정리 (선택)
 window.addEventListener('beforeunload', ()=>{
   if (idleTimer) clearTimeout(idleTimer);
   if (monoTimeout) clearTimeout(monoTimeout);
+  if (monoRestartTimer) clearTimeout(monoRestartTimer);
 });
+
 
 
 
