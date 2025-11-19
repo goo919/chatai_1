@@ -119,9 +119,11 @@ const MONO_IDLE_MS = 15000; // 마지막 대화 후 15초 지나면 독백 시�
 let monoIndex = 0;           // 다음에 말할 문장 인덱스
 let isMonologueActive = false;
 let monoTimeout = null;
+let monoRestartTimer = null;   // ✅ 새로 추가: 독백 한바퀴 끝난 뒤 다시 시작 타이머
 
 let idleTimer = null;        // 유저가 아무것도 안 할 때 타이머
 let wasInterrupted = false;  // 유저 입력으로 독백이 끊겼는지 여부
+
 // =========================
 // 🔔 독백 상태 인디케이터
 // =========================
@@ -1223,6 +1225,9 @@ window.addEventListener('DOMContentLoaded', () => {
   lockPortraitHeight();
   showPortrait();
 
+  // ✅ 독백 상태 인디케이터 박스 생성
+  createMonologueIndicator();
+
   // 첫 인사
   const greet = '...왔구나.';
   const p = document.createElement('p');
@@ -1236,7 +1241,7 @@ window.addEventListener('DOMContentLoaded', () => {
     if (e.key === 'Enter') { e.preventDefault(); sendButton.click(); }
   });
 
-   // 깜빡임 + 카메라
+  // 깜빡임 + 카메라
   startBlinking();
   if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia){
     startCameraAndTracking();
@@ -1248,6 +1253,7 @@ window.addEventListener('DOMContentLoaded', () => {
   //    MONO_IDLE_MS 뒤에 첫 독백을 시작하게 트리거
   resetIdleTimer();
 });
+
 
 
 // 전시 모드 단축키: ⌘ + Enter (Mac 기준)
