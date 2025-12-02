@@ -1799,53 +1799,70 @@ const CHAR_SET = " .,:;-_+*!il1trxnvczYUJCLQ0OZmwqpdbkhao#MW&8%B@사망원인질
 
   requestAnimationFrame(loop);
 
-  // =========================
-  // 디테일 + 색상 추가된 ASCII 렌더링
+    // =========================
+  // 디테일 + 색 유지 + 성능 개선 ASCII 렌더링
+  //  - 문자 자체는 순수 텍스트
+  //  - 줄 단위로만 <span class="ascii-cX"> 적용
   // =========================
   function renderAsciiFrame() {
     if (!video.videoWidth || !video.videoHeight) return;
 
+    // 비디오 → 샘플링
     ctx.drawImage(video, 0, 0, COLS, ROWS);
     const imageData = ctx.getImageData(0, 0, COLS, ROWS);
     const data = imageData.data;
 
-    let html = '';
+    const len = CHAR_SET.length - 1;
+    const lines = [];
 
     for (let y = 0; y < ROWS; y++) {
-      let row = '';
+      let rowChars = '';
+      let luminanceSum = 0;
+
+      const rowOffset = y * COLS * 4;
+
       for (let x = 0; x < COLS; x++) {
-        const index = (y * COLS + x) * 4;
-        const r = data[index + 0];
-        const g = data[index + 1];
-        const b = data[index + 2];
+        const i = rowOffset + x * 4;
+        const r = data[i + 0];
+        const g = data[i + 1];
+        const b = data[i + 2];
 
-        const luminance = 0.299 * r + 0.587 * g + 0.114 * b;
-        const norm = Math.pow(luminance / 255, 0.8);
+        // 밝기 계산
+        const luminance = (r * 299 + g * 587 + b * 114) / 1000; // 0~255
+        luminanceSum += luminance;
 
-        let charIndex = Math.floor(norm * (CHAR_SET.length - 1));
-        if (charIndex < 0) charIndex = 0;
-        if (charIndex >= CHAR_SET.length) charIndex = CHAR_SET.length - 1;
-        const ch = CHAR_SET[charIndex];
+        const norm = luminance / 255;  // 0~1
+        let idx = (norm * len) | 0;
+        if (idx < 0) idx = 0;
+        if (idx > len) idx = len;
 
-        // ★ 밝기 구간에 따라 색상 4단계
-        let cls;
-        if (norm < 0.25) {
-          cls = 'ascii-c0'; // 어두운 그림자
-        } else if (norm < 0.55) {
-          cls = 'ascii-c1'; // 기본 흰색
-        } else if (norm < 0.8) {
-          cls = 'ascii-c2'; // 파란빛 하이라이트
-        } else {
-          cls = 'ascii-c3'; // 가장 밝은 영역: 붉은 포인트
-        }
-
-        row += '<span class="' + cls + '">' + ch + '</span>';
+        rowChars += CHAR_SET[idx];
       }
-      html += row + '\\n';
+
+      // 줄 평균 밝기 → 색 클래스 결정
+      const avgLum = luminanceSum / COLS;
+      const normAvg = avgLum / 255;
+
+      let cls;
+      if (normAvg < 0.25) {
+        cls = 'ascii-c0';
+      } else if (normAvg < 0.55) {
+        cls = 'ascii-c1';
+      } else if (normAvg < 0.8) {
+        cls = 'ascii-c2';
+      } else {
+        cls = 'ascii-c3';
+      }
+
+      // 줄 전체를 하나의 span으로 감싸기
+      // rowChars 안에는 특수문자 있지만, <, >, & 안 쓰니까 그대로 안전
+      lines.push('<span class="' + cls + '">' + rowChars + '</span>');
     }
 
-    asciiEl.innerHTML = html;
+    // 줄 사이에 \n 삽입
+    asciiEl.innerHTML = lines.join('\n');
   }
+
 
   window.addEventListener('message', (ev)=>{
     if (!ev?.data) return;
