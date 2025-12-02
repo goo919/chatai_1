@@ -1856,20 +1856,20 @@ function renderAsciiFrame() {
 
       // ✅ 특정 문자만 색 입히기
       let colored;
-      if (ch === '█') {
-        colored = `<span class="c-red">█</span>`;
-      } else if (ch === '▓') {
-        colored = `<span class="c-cyan">▓</span>`;
-      } else if (ch === '■') {
-        colored = `<span class="c-amber">■</span>`;
-      } else {
-        // 나머지는 그냥 평소처럼 출력
-        // HTML 특수문자만 이스케이프
-        if (ch === '&')      colored = '&amp;';
-        else if (ch === '<') colored = '&lt;';
-        else if (ch === '>') colored = '&gt;';
-        else                 colored = ch;
-      }
+if (ch === '█') {
+  colored = '<span class="c-red">█</span>';
+} else if (ch === '▓') {
+  colored = '<span class="c-cyan">▓</span>';
+} else if (ch === '■') {
+  colored = '<span class="c-amber">■</span>';
+} else {
+  // 나머지는 그냥 평소처럼 출력
+  // HTML 특수문자만 이스케이프
+  if (ch === '&')      colored = '&amp;';
+  else if (ch === '<') colored = '&lt;';
+  else if (ch === '>') colored = '&gt;';
+  else                 colored = ch;
+}
 
       row += colored;
     }
