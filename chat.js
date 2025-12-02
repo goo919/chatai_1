@@ -1559,10 +1559,10 @@ header button:hover{
 }
 
 /* 문자 하나하나에 색상 입힐 클래스들 */
-.ascii-c0 { color:#404040; }   /* 어두운 영역(그림자) */
-.ascii-c1 { color:#e0e0e0; }   /* 기본 밝기(흰색 계열) */
-.ascii-c2 { color:#00d0ff; }   /* ★ 추가 색 1: 청록 하이라이트 */
-.ascii-c3 { color:#ff4d4f; }   /* ★ 추가 색 2: 붉은 포인트 */
+.ascii-c0 { color:#102010; }
+.ascii-c1 { color:#3fa33f; }
+.ascii-c2 { color:#5fe75f; }
+.ascii-c3 { color:#aaffe6; }
 
 #video {
   display: none;
