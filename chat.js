@@ -1549,7 +1549,7 @@ header button:hover{
 #ascii {
   white-space: pre;
   font-family: monospace;
-  font-size: 6px;      /* ★ 기존 8px → 6px: 더 촘촘하게 */
+  font-size: 12px;      /* ★ 기존 8px → 6px: 더 촘촘하게 */
   line-height: 1.05;   /* ★ 살짝 더 촘촘하게 */
   flex: 1;
   overflow: hidden;
