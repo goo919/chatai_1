@@ -1542,11 +1542,15 @@ header button:hover{
   opacity:0.85;
 }
 
+/* =========================
+   ASCII 출력 영역
+   - 폰트 사이즈 줄여서 디테일 ↑
+========================= */
 #ascii {
   white-space: pre;
   font-family: monospace;
-  font-size: 8px;   /* 글자 크기로 밀도 조절 */
-  line-height: 1.1;
+  font-size: 6px;      /* ★ 기존 8px → 6px: 더 촘촘하게 */
+  line-height: 1.05;   /* ★ 살짝 더 촘촘하게 */
   flex: 1;
   overflow: hidden;
   padding: 0;
@@ -1554,7 +1558,12 @@ header button:hover{
   background: #000;
 }
 
-/* 원본 비디오(숨김) */
+/* 문자 하나하나에 색상 입힐 클래스들 */
+.ascii-c0 { color:#404040; }   /* 어두운 영역(그림자) */
+.ascii-c1 { color:#e0e0e0; }   /* 기본 밝기(흰색 계열) */
+.ascii-c2 { color:#00d0ff; }   /* ★ 추가 색 1: 청록 하이라이트 */
+.ascii-c3 { color:#ff4d4f; }   /* ★ 추가 색 2: 붉은 포인트 */
+
 #video {
   display: none;
 }
@@ -1591,18 +1600,11 @@ body.exhibition #ascii {
   <span id="status">파일을 여러 개 선택하거나 URL을 입력해 주세요.</span>
 </header>
 
-<!-- 원본 비디오 (화면에는 안 보이게) -->
 <video id="video" playsinline></video>
-
-<!-- ASCII 출력 영역 -->
 <pre id="ascii"></pre>
-
 <div class="hint">* 여러 영상 선택 가능. 끝나면 랜덤으로 다음 영상 재생. (URL은 단일 재생)</div>
 
 <script>
-// =========================
-// video-ascii.js + 플레이리스트 + 전시 모드
-// =========================
 (function(){
   const fileInput = document.getElementById('file-input');
   const playBtn   = document.getElementById('play-btn');
@@ -1611,31 +1613,30 @@ body.exhibition #ascii {
   const video     = document.getElementById('video');
   const asciiEl   = document.getElementById('ascii');
 
-  // 메모리용 캔버스 (DOM에 안 붙임)
   const canvas = document.createElement('canvas');
   const ctx    = canvas.getContext('2d', { willReadFrequently: true });
 
-  // ASCII 문자 세트 (어두움 → 밝음)
+  // ★ 밝기 단계 더 섬세하게 보이도록, 문자 셋은 그대로 두고
+  //   대신 해상도/색 분할을 조정
   const CHAR_SET = " .:-=+*#%@ 사망 원인 질병 손상 검안 진단 번호 직인 Dx Rx Tx ICD COD DNR 410 VOID";
 
-  // 현재 해상도 (문자 단위)
   let COLS = 140;
   let ROWS = 70;
 
-  // 플레이리스트 (파일 기반)
-  let fileList   = [];  // File[]
-  let objectUrls = [];  // string[]
+  let fileList   = [];
+  let objectUrls = [];
   let currentIdx = -1;
 
-  // URL 기반 단일 재생 플래그
   let isUrlMode  = false;
 
-  // 화면 크기 + 실제 폰트 크기를 기준으로 COLS/ROWS 자동 계산
+  // =========================
+  // 해상도 계산 (영상 디테일 ↑)
+  // =========================
   function computeAsciiSize() {
     const styles = window.getComputedStyle(asciiEl);
-    const fontSize   = parseFloat(styles.fontSize)   || 7;               // px
-    const lineHeight = parseFloat(styles.lineHeight) || fontSize * 1.1;  // px
-    const fontWidth  = fontSize * 0.6; // monospace 글자 가로 폭 대략 비율
+    const fontSize   = parseFloat(styles.fontSize)   || 6;
+    const lineHeight = parseFloat(styles.lineHeight) || fontSize * 1.05;
+    const fontWidth  = fontSize * 0.55; // ★ 조금 더 세밀하게 잡기
 
     const header = document.querySelector('header');
     const headerH = header ? header.offsetHeight : 0;
@@ -1643,13 +1644,13 @@ body.exhibition #ascii {
     const availableW = window.innerWidth;
     const availableH = window.innerHeight - headerH;
 
-    const cols = Math.max(40, Math.floor(availableW / fontWidth));
-    const rows = Math.max(20, Math.floor(availableH / lineHeight));
+    // 화면 크기에 비해 꽤 촘촘하게
+    const cols = Math.max(60, Math.floor(availableW / fontWidth));
+    const rows = Math.max(30, Math.floor(availableH / lineHeight));
 
     return { cols, rows };
   }
 
-  // 캔버스 & 해상도 초기화 + 리사이즈 대응
   function resizeAsciiResolution() {
     const size = computeAsciiSize();
     COLS = size.cols;
@@ -1669,7 +1670,6 @@ body.exhibition #ascii {
     objectUrls = [];
   }
 
-  // 현재 index의 파일 재생 준비
   function loadCurrentFromPlaylist(){
     if (!fileList.length || currentIdx < 0 || currentIdx >= fileList.length) return false;
     const url = objectUrls[currentIdx];
@@ -1683,7 +1683,6 @@ body.exhibition #ascii {
     return true;
   }
 
-  // 파일 선택 시 (여러 개 가능)
   fileInput.addEventListener('change', () => {
     const files = fileInput.files ? Array.from(fileInput.files) : [];
     if (!files.length) return;
@@ -1696,14 +1695,11 @@ body.exhibition #ascii {
     loadCurrentFromPlaylist();
   });
 
-  // URL 입력 시 (Enter) → 단일 재생 모드
   if (urlInput){
     urlInput.addEventListener('keydown', (e)=>{
       if (e.key === 'Enter') {
         const url = urlInput.value.trim();
         if (!url) return;
-        // URL 모드에서는 기존 플레이리스트는 그대로 두되,
-        // 현재는 URL을 단일 재생 대상으로 설정
         video.src = url;
         statusEl.textContent = 'URL 재생 준비: ' + url;
         isUrlMode = true;
@@ -1711,10 +1707,8 @@ body.exhibition #ascii {
     });
   }
 
-  // 재생 버튼
   playBtn.addEventListener('click', async () => {
     if (!video.src){
-      // 아직 아무 것도 설정 안 됐으면, 플레이리스트가 있으면 그걸 로드
       if (fileList.length){
         if (!loadCurrentFromPlaylist()){
           alert('재생할 영상을 찾을 수 없어요.');
@@ -1727,7 +1721,6 @@ body.exhibition #ascii {
     }
 
     try {
-      // Safari에서 메타데이터 로딩 기다리기
       if (video.readyState < 2) {
         await new Promise(res => {
           const handler = function(){
@@ -1738,14 +1731,11 @@ body.exhibition #ascii {
         });
       }
 
-      // 🔊 소리 켜기
       video.muted  = false;
       video.volume = 1.0;
 
-      // 해상도 다시 맞춰주기 (창 크기 변경 후 재생하는 경우 대비)
       resizeAsciiResolution();
 
-      // 처음부터 다시 재생
       video.currentTime = 0;
       await video.play();
       statusEl.textContent = isUrlMode
@@ -1758,10 +1748,8 @@ body.exhibition #ascii {
     }
   });
 
-  // 비디오가 끝났을 때: 플레이리스트 모드라면 랜덤 다음 재생
   video.addEventListener('ended', () => {
     if (isUrlMode) {
-      // URL 단일 모드는 그냥 멈춤
       statusEl.textContent = '재생 완료 (URL 모드).';
       return;
     }
@@ -1772,7 +1760,6 @@ body.exhibition #ascii {
     }
 
     if (fileList.length === 1){
-      // 한 개 뿐이면 그냥 반복 재생
       video.currentTime = 0;
       video.play().catch(()=>{});
       statusEl.textContent =
@@ -1782,7 +1769,6 @@ body.exhibition #ascii {
       return;
     }
 
-    // 랜덤으로 다음 영상 선택 (현재 index와 다르게)
     let next = currentIdx;
     while (next === currentIdx){
       next = Math.floor(Math.random() * fileList.length);
@@ -1794,8 +1780,7 @@ body.exhibition #ascii {
     video.play().catch(()=>{});
   });
 
-  // 메인 루프 (FPS 제한)
-  const ASCII_FPS = 15; // 살짝 올려서 조금 더 부드럽게
+  const ASCII_FPS = 15;
   let lastTime = 0;
 
   function loop(now) {
@@ -1812,17 +1797,17 @@ body.exhibition #ascii {
 
   requestAnimationFrame(loop);
 
-  // 한 프레임을 ASCII로 변환해서 출력
+  // =========================
+  // 디테일 + 색상 추가된 ASCII 렌더링
+  // =========================
   function renderAsciiFrame() {
     if (!video.videoWidth || !video.videoHeight) return;
 
-    // 비디오 프레임을 캔버스에 축소해서 그리기
     ctx.drawImage(video, 0, 0, COLS, ROWS);
-
     const imageData = ctx.getImageData(0, 0, COLS, ROWS);
     const data = imageData.data;
 
-    let ascii = '';
+    let html = '';
 
     for (let y = 0; y < ROWS; y++) {
       let row = '';
@@ -1832,27 +1817,34 @@ body.exhibition #ascii {
         const g = data[index + 1];
         const b = data[index + 2];
 
-        // 더 자연스러운 명암을 위해 가중치 적용 (BT.601)
         const luminance = 0.299 * r + 0.587 * g + 0.114 * b;
-
-        // 감마 보정으로 어두운/밝은 쪽 디테일 강조
-        const norm = Math.pow(luminance / 255, 0.8); // 0.8 < 1 → 콘트라스트↑
+        const norm = Math.pow(luminance / 255, 0.8);
 
         let charIndex = Math.floor(norm * (CHAR_SET.length - 1));
         if (charIndex < 0) charIndex = 0;
         if (charIndex >= CHAR_SET.length) charIndex = CHAR_SET.length - 1;
+        const ch = CHAR_SET[charIndex];
 
-        row += CHAR_SET[charIndex];
+        // ★ 밝기 구간에 따라 색상 4단계
+        let cls;
+        if (norm < 0.25) {
+          cls = 'ascii-c0'; // 어두운 그림자
+        } else if (norm < 0.55) {
+          cls = 'ascii-c1'; // 기본 흰색
+        } else if (norm < 0.8) {
+          cls = 'ascii-c2'; // 파란빛 하이라이트
+        } else {
+          cls = 'ascii-c3'; // 가장 밝은 영역: 붉은 포인트
+        }
+
+        row += '<span class="' + cls + '">' + ch + '</span>';
       }
-      ascii += row + '\\n';
+      html += row + '\\n';
     }
 
-    asciiEl.textContent = ascii;
+    asciiEl.innerHTML = html;
   }
 
-  // =========================
-  // 전시 모드 메시지 수신
-  // =========================
   window.addEventListener('message', (ev)=>{
     if (!ev?.data) return;
     if (ev.data.type === 'exhibitionMode'){
@@ -1861,7 +1853,6 @@ body.exhibition #ascii {
     }
   });
 
-  // 팝업에서도 Cmd+Enter 누르면 전시 모드 토글 요청 (옵셔널)
   window.addEventListener('keydown', (e)=>{
     if (e.key === 'Enter' && e.metaKey){
       if (window.opener){
@@ -1877,6 +1868,7 @@ body.exhibition #ascii {
 </body>
 </html>`;
 }
+
 
 
 
