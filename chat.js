@@ -1485,7 +1485,13 @@ function buildVideoPickerHTML(){
 <style>
 :root {
   color-scheme: dark;
-}
+  /* 컬러 문자용 클래스 */
+  }
+.c-red   { color:#ff4d4f; }   /* 붉은 경고/사망 느낌 */
+.c-cyan  { color:#1fa7a7; }   /* 청록 의료/데이터 느낌 */
+.c-amber { color:#e6b422; }   /* 황색 스탬프/직인 느낌 */
+
+
 html, body {
   margin: 0;
   padding: 0;
@@ -1817,42 +1823,63 @@ const CHAR_SET =
   requestAnimationFrame(loop);
 
   // 한 프레임을 ASCII로 변환해서 출력
-  function renderAsciiFrame() {
-    if (!video.videoWidth || !video.videoHeight) return;
+function renderAsciiFrame() {
+  if (!video.videoWidth || !video.videoHeight) return;
 
-    // 비디오 프레임을 캔버스에 축소해서 그리기
-    ctx.drawImage(video, 0, 0, COLS, ROWS);
+  // 비디오 프레임을 캔버스에 축소해서 그리기
+  ctx.drawImage(video, 0, 0, COLS, ROWS);
 
-    const imageData = ctx.getImageData(0, 0, COLS, ROWS);
-    const data = imageData.data;
+  const imageData = ctx.getImageData(0, 0, COLS, ROWS);
+  const data = imageData.data;
 
-    let ascii = '';
+  let html = '';
 
-    for (let y = 0; y < ROWS; y++) {
-      let row = '';
-      for (let x = 0; x < COLS; x++) {
-        const index = (y * COLS + x) * 4;
-        const r = data[index + 0];
-        const g = data[index + 1];
-        const b = data[index + 2];
+  for (let y = 0; y < ROWS; y++) {
+    let row = '';
+    for (let x = 0; x < COLS; x++) {
+      const index = (y * COLS + x) * 4;
+      const r = data[index + 0];
+      const g = data[index + 1];
+      const b = data[index + 2];
 
-        // 더 자연스러운 명암을 위해 가중치 적용 (BT.601)
-        const luminance = 0.299 * r + 0.587 * g + 0.114 * b;
+      // 더 자연스러운 명암을 위해 가중치 적용 (BT.601)
+      const luminance = 0.299 * r + 0.587 * g + 0.114 * b;
 
-        // 감마 보정으로 어두운/밝은 쪽 디테일 강조
-        const norm = Math.pow(luminance / 255, 0.8); // 0.8 < 1 → 콘트라스트↑
+      // 감마 보정으로 어두운/밝은 쪽 디테일 강조
+      const norm = Math.pow(luminance / 255, 0.8); // 0.8 < 1 → 콘트라스트↑
 
-        let charIndex = Math.floor(norm * (CHAR_SET.length - 1));
-        if (charIndex < 0) charIndex = 0;
-        if (charIndex >= CHAR_SET.length) charIndex = CHAR_SET.length - 1;
+      let charIndex = Math.floor(norm * (CHAR_SET.length - 1));
+      if (charIndex < 0) charIndex = 0;
+      if (charIndex >= CHAR_SET.length) charIndex = CHAR_SET.length - 1;
 
-        row += CHAR_SET[charIndex];
+      const ch = CHAR_SET[charIndex];
+
+      // ✅ 특정 문자만 색 입히기
+      let colored;
+      if (ch === '█') {
+        colored = `<span class="c-red">█</span>`;
+      } else if (ch === '▓') {
+        colored = `<span class="c-cyan">▓</span>`;
+      } else if (ch === '■') {
+        colored = `<span class="c-amber">■</span>`;
+      } else {
+        // 나머지는 그냥 평소처럼 출력
+        // HTML 특수문자만 이스케이프
+        if (ch === '&')      colored = '&amp;';
+        else if (ch === '<') colored = '&lt;';
+        else if (ch === '>') colored = '&gt;';
+        else                 colored = ch;
       }
-      ascii += row + '\\n';
-    }
 
-    asciiEl.textContent = ascii;
+      row += colored;
+    }
+    html += row + '\n';
   }
+
+  // ⛔ textContent → ✅ innerHTML 로 변경
+  asciiEl.innerHTML = html;
+}
+
 
   // =========================
   // 전시 모드 메시지 수신
