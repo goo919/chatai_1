@@ -785,7 +785,7 @@ function createCameraPreview(){
     background: 'rgba(0,0,0,0.6)',
     color: '#ddd',
     fontFamily: 'monospace',
-    fontSize: '12px',
+    fontSize: '16px',
     border: '2px solid #e74c3c',
     borderRadius: '8px',
     overflow: 'hidden',
