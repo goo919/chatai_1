@@ -1616,7 +1616,11 @@ body.exhibition #ascii {
   const ctx    = canvas.getContext('2d', { willReadFrequently: true });
 
   // ASCII 문자 세트 (어두움 → 밝음)
-  const CHAR_SET = " .:-=+*#%@ 사망 원인 질병 손상 검안 진단 번호 직인 Dx Rx Tx ICD COD DNR 410 VOID";
+const CHAR_SET = 
+" .:-=+*#%@ 사망 원인 질병 손상 검안 진단 번호 직인 Dx Rx Tx ICD COD DNR 410 VOID" +
+"´`' ^\" ,_ ;! i| /\\ () {} [] <> ~? L J1 t f r c v u n x z j l I T F Y C U V W Z O 0 Q G b k p q d h m w B8&$" +
+"░▒▓█▁▂▃▄▅▆▇■□◆◇●○◼◻◾◽";
+
 
   // 현재 해상도 (문자 단위)
   let COLS = 140;
