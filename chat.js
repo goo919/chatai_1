@@ -1618,7 +1618,7 @@ body.exhibition #ascii {
 
   // ★ 밝기 단계 더 섬세하게 보이도록, 문자 셋은 그대로 두고
   //   대신 해상도/색 분할을 조정
-const CHAR_SET = " .'`,;-_^\~+*!il1trxnvczYUJCLQ0OZmwqpdbkhao#MW&8%B@사망원인질병손상검안DxRxTxICDCODDNR410VOID";
+const CHAR_SET = " .'`,-_^\~+*!il1trxnvczYUJCLQ0OZmwqpdbkhao#MW&8%B@사망원인질병손상검안DxRxTxICDCODDNR410VOID";
 
 
   let COLS = 140;
