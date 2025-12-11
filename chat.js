@@ -1508,15 +1508,6 @@ function interruptMonologue(){
 
 // idle 타이머 관리
 // 이제 idle로 독백을 자동 시작하지 않으므로, 타이머만 정리하고 상태만 갱신
-function resetIdleTimer(){
-  if (idleTimer) {
-    clearTimeout(idleTimer);
-    idleTimer = null;
-  }
-  updateMonologueIndicator();
-}
-
-
 // =========================
 // 화면 흔들기 (CSS에 .shake-once 정의 필요)
 // =========================
@@ -1557,6 +1548,7 @@ function onLongNoFace(){
   interruptMonologue();
   renderMessage('ai', '...', null);
 }
+
 
 
 /* =========================
