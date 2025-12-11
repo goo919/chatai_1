@@ -863,6 +863,8 @@ const MISS_THRESHOLD = 4;
 let lastHasFace = false;        // 직전 프레임의 얼굴 인식 상태
 let noFaceStartedAt = null;     // 얼굴이 안 보이기 시작한 시간 (ms)
 let noFaceDotsSent = false; 
+let alertFlashTimer = null;
+
 
 // 초상 렌더
 function showPortrait(){
@@ -1522,14 +1524,80 @@ function interruptMonologue(){
 // =========================
 // 화면 흔들기 (CSS에 .shake-once 정의 필요)
 // =========================
+// =========================
+// 화면 흔들기 (강하게 흔들기)
+// =========================
 function shakeScreen(){
-  const target = document.body; // 필요하면 특정 컨테이너로 바꿔도 됨
+  const target = document.body;
   if (!target) return;
-  target.classList.add('shake-once');
-  setTimeout(() => {
-    target.classList.remove('shake-once');
-  }, 400);
+
+  const duration = 600; // 전체 흔들리는 시간 ms
+  const start = performance.now();
+
+  function frame(t){
+    const elapsed = t - start;
+    if (elapsed >= duration){
+      target.style.transform = '';
+      return;
+    }
+
+    // 시간이 지날수록 조금씩 진동 감소
+    const progress  = elapsed / duration;
+    const intensity = 18 * (1 - progress); // 최대 약 18px 정도
+
+    const offsetX = (Math.random() * 2 - 1) * intensity;
+    const offsetY = (Math.random() * 2 - 1) * intensity;
+
+    target.style.transform = `translate(${offsetX}px, ${offsetY}px)`;
+    requestAnimationFrame(frame);
+  }
+
+  requestAnimationFrame(frame);
 }
+
+// =========================
+// 경고 모드: 빨간색 번쩍번쩍
+// =========================
+function startAlertEffect(){
+  // 기존 타이머가 있으면 먼저 정리
+  if (alertFlashTimer) {
+    clearInterval(alertFlashTimer);
+    alertFlashTimer = null;
+  }
+
+  // 배경/텍스트 기본 스타일 저장은 간단히 초기값 복원 쪽으로 처리
+  let on = false;
+
+  alertFlashTimer = setInterval(() => {
+    on = !on;
+
+    const body = document.body;
+    if (body) {
+      body.style.color = on ? '#ff3333' : '#ffffff';
+    }
+    if (portraitEl) {
+      portraitEl.style.color = on ? '#ff3333' : '';
+    }
+    if (chatBox) {
+      chatBox.style.color = on ? '#ff4444' : '';
+    }
+  }, 120); // 0.12초마다 깜빡
+}
+
+function stopAlertEffect(){
+  if (alertFlashTimer) {
+    clearInterval(alertFlashTimer);
+    alertFlashTimer = null;
+  }
+
+  // 색상 원래대로(기본값으로 돌려놓기)
+  const body = document.body;
+  if (body) body.style.color = '';
+  if (portraitEl) portraitEl.style.color = '';
+  if (chatBox) chatBox.style.color = '';
+}
+
+
 
 // 얼굴이 새로 "나타났을" 때 호출
 function onFaceAppeared(){
@@ -1542,16 +1610,38 @@ function onFaceAppeared(){
 
   // 화면 한 번 흔들기 + 큰 소리로 부르기
   shakeScreen();
+// 얼굴이 새로 "나타났을" 때 호출
+function onFaceAppeared(){
+  // 혹시 진행 중이던 독백이 있으면 정리
+  interruptMonologue();
+
+  // '사람 없음' 상태 관련 타이머/플래그 리셋
+  noFaceStartedAt = null;
+  noFaceDotsSent = false;
+
+  // 강한 화면 흔들기 + 빨간 플래시 시작
+  shakeScreen();
+  startAlertEffect();
+
+  // 크게 불러 세우기
   renderMessage(
     'ai',
     '어이!!!!!!!!!!!!!!!!!!!!!!!! 너!!!!!!!!!!! 지나가는 너!!!!!!! 내얘기좀 들어봐!!!!!!!!!',
     () => {
-      // 그 다음부터 독백 시작 (처음 문장부터)
-      monoIndex = 0;
+      // "어이!!!" 말 다 끝나면 플래시/효과 끄고, 이어서 독백 시작
+      stopAlertEffect();
+
+      // 이미 전부 말한 상태면만 0으로 돌리고, 아니면 이어서
+      if (monoIndex >= MONO_LINES.length) {
+        monoIndex = 0;
+      }
+
       wasInterrupted = false;
       startMonologueFromCurrent();
     }
   );
+}
+
 }
 
 // 얼굴이 "없어진 상태가 10초 이상" 유지됐을 때 호출
