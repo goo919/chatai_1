@@ -877,6 +877,17 @@ function showPortrait(){
   portraitEl.textContent = frame;
 }
 
+// idle 타이머 관리
+function resetIdleTimer(){
+  if (idleTimer) {
+    clearTimeout(idleTimer);
+    idleTimer = null;
+  }
+  updateMonologueIndicator();
+  // 더 이상 idle 기반으로 독백을 자동 시작하지 않음
+}
+
+
 // 입 상태 리셋
 function resetMouth(){
   mouthCount = 0;
