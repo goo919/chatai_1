@@ -1160,11 +1160,28 @@ function createAudioPanel(){
   fileInput.style.flex = '1';
   fileInput.style.fontSize = '11px';
 
+  // ▶ / ⏸ 버튼
+  const playBtn = document.createElement('button');
+  playBtn.textContent = '▶ 재생';
+  Object.assign(playBtn.style, {
+    fontSize: '11px',
+    padding: '4px 6px',
+    background: 'rgba(255,255,255,0.1)',
+    color: '#f1f1f1',
+    border: '1px solid rgba(255,255,255,0.35)',
+    borderRadius: '4px',
+    cursor: 'pointer',
+    flexShrink: '0'
+  });
+
+  let isPlaying = false;
+
   const status = document.createElement('div');
-  status.textContent = '음원을 선택하면 자동 재생돼.';
+  status.textContent = '음원을 선택하고 [재생] 버튼을 눌러줘.';
   status.style.opacity = '0.8';
 
-  fileInput.addEventListener('change', ()=>{
+  // 파일 선택 시: src만 세팅, 자동 재생은 안 함
+  fileInput.addEventListener('change', () => {
     const file = fileInput.files && fileInput.files[0];
     if (!file) return;
 
@@ -1177,16 +1194,44 @@ function createAudioPanel(){
     audioCurrentUrl = url;
     audioElement.src = url;
 
-    audioElement.play()
-      .then(()=>{
-        status.textContent = `재생 중: ${file.name}`;
-      })
-      .catch(err=>{
-        status.textContent = '재생 실패: ' + (err?.message || err);
-      });
+    isPlaying = false;
+    playBtn.textContent = '▶ 재생';
+    status.textContent = `선택됨: ${file.name} (재생 버튼을 눌러줘)`;
+  });
+
+  // 재생/일시정지 버튼 클릭 시: 이게 "사용자 제스처"라 정책에 안 걸림
+  playBtn.addEventListener('click', async () => {
+    if (!audioElement.src){
+      status.textContent = '먼저 음원 파일을 선택해줘.';
+      return;
+    }
+
+    try{
+      // (필요하면 Web AudioContext도 깨워줌 – 현재 비프용)
+      if (audioCtx && audioCtx.state === 'suspended'){
+        await audioCtx.resume();
+      }
+
+      if (!isPlaying){
+        await audioElement.play();
+        isPlaying = true;
+        playBtn.textContent = '⏸ 일시정지';
+        status.textContent = '재생 중...';
+      } else {
+        audioElement.pause();
+        isPlaying = false;
+        playBtn.textContent = '▶ 재생';
+        status.textContent = '일시정지됨';
+      }
+    }catch(err){
+      status.textContent = '재생 실패: ' + (err?.message || err);
+      console.error('audio play error', err);
+    }
   });
 
   fileRow.appendChild(fileInput);
+  fileRow.appendChild(playBtn);
+
   panel.appendChild(title);
   panel.appendChild(fileRow);
   panel.appendChild(status);
