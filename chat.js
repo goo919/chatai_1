@@ -768,8 +768,19 @@ let CAMERA_PREVIEW_ENABLED = true;
 window.setCameraPreviewEnabled = function(flag){
   CAMERA_PREVIEW_ENABLED = !!flag;
   const panel = document.getElementById('cam-preview');
-  if (panel) panel.style.display = CAMERA_PREVIEW_ENABLED ? 'block' : 'none';
+  if (!panel) return;
+
+  if (CAMERA_PREVIEW_ENABLED){
+    // 눈에는 보이도록
+    panel.style.opacity = '1';
+    panel.style.pointerEvents = 'auto';
+  } else {
+    // 화면에서만 안 보이게 (비디오는 계속 재생)
+    panel.style.opacity = '0';
+    panel.style.pointerEvents = 'none';
+  }
 };
+
 
 let camPanel = null, camVideo = null, camStatus = null;
 
@@ -792,9 +803,12 @@ function createCameraPreview(){
     overflow: 'hidden',
     zIndex: '9999',
     boxShadow: '0 4px 12px rgba(0,0,0,0.35)',
-    display: CAMERA_PREVIEW_ENABLED ? 'block' : 'none',
+    display: 'block',                // 항상 block
     backdropFilter: 'blur(2px)',
+    opacity: CAMERA_PREVIEW_ENABLED ? '1' : '0',
+    pointerEvents: CAMERA_PREVIEW_ENABLED ? 'auto' : 'none',
   });
+
 
   const video = document.createElement('video');
   Object.assign(video, { autoplay:true, playsInline:true, muted:true });
