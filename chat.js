@@ -860,6 +860,10 @@ let hasFace   = false;
 let missCount = 0;
 const MISS_THRESHOLD = 4;
 
+let lastHasFace = false;        // 직전 프레임의 얼굴 인식 상태
+let noFaceStartedAt = null;     // 얼굴이 안 보이기 시작한 시간 (ms)
+let noFaceDotsSent = false; 
+
 // 초상 렌더
 function showPortrait(){
   if (!portraitEl) return;
@@ -1046,9 +1050,42 @@ async function startCameraAndTracking(){
             if (missCount < MISS_THRESHOLD) missCount++;
             if (missCount >= MISS_THRESHOLD) hasFace = false;
           }
+
+          // 👇 얼굴 등장/퇴장 이벤트 처리
+          const nowMs = performance.now();
+
+          if (hasFace){
+            // 얼굴이 "방금" 나타난 순간 (false → true)
+            if (!lastHasFace){
+              onFaceAppeared();
+            }
+            // 얼굴이 있는 동안에는 '사람 없음' 타이머/플래그 리셋
+            noFaceStartedAt = null;
+            noFaceDotsSent = false;
+          } else {
+            // 얼굴이 없을 때
+            if (lastHasFace){
+              // 방금 사라진 순간 (true → false)
+              noFaceStartedAt = nowMs;
+              noFaceDotsSent = false;
+              interruptMonologue();
+            } else {
+              // 처음부터 계속 없거나, 이미 없는 상태 유지 중
+              if (!noFaceStartedAt) noFaceStartedAt = nowMs;
+            }
+
+            // 얼굴 없음 상태가 10초 이상 지속되면 '...' 한 번만 출력
+            if (!noFaceDotsSent && noFaceStartedAt && (nowMs - noFaceStartedAt >= 10000)){
+              onLongNoFace();
+              noFaceDotsSent = true;
+            }
+          }
+
+          lastHasFace = hasFace;
         }
 
         showPortrait();
+
 
         if (camPanel && camStatus){
           camPanel.style.display = CAMERA_PREVIEW_ENABLED ? 'block' : 'none';
@@ -1451,7 +1488,11 @@ function interruptMonologue(){
 // idle 타이머 관리
 function resetIdleTimer(){
   if (idleTimer) clearTimeout(idleTimer);
+  idleTimer = null;
   updateMonologueIndicator();
+  // 더 이상 idle 기반으로 독백을 자동 시작하지 않음
+}
+
 
   idleTimer = setTimeout(()=>{
     if (wasInterrupted && monoIndex < MONO_LINES.length){
@@ -1470,6 +1511,48 @@ function resetIdleTimer(){
     }
   }, MONO_IDLE_MS);
 }
+
+// =========================
+// 화면 흔들기 (CSS에 .shake-once 정의 필요)
+// =========================
+function shakeScreen(){
+  const target = document.body; // 필요하면 특정 컨테이너로 바꿔도 됨
+  if (!target) return;
+  target.classList.add('shake-once');
+  setTimeout(() => {
+    target.classList.remove('shake-once');
+  }, 400);
+}
+
+// 얼굴이 새로 "나타났을" 때 호출
+function onFaceAppeared(){
+  // 혹시 진행 중이던 독백이 있으면 정리
+  interruptMonologue();
+
+  // '사람 없음' 상태 관련 타이머/플래그 리셋
+  noFaceStartedAt = null;
+  noFaceDotsSent = false;
+
+  // 화면 한 번 흔들기 + 큰 소리로 부르기
+  shakeScreen();
+  renderMessage(
+    'ai',
+    '어이!!!!!!!!!!!!!!!!!!!!!!!! 너!!!!!!!!!!! 지나가는 너!!!!!!! 내얘기좀 들어봐!!!!!!!!!',
+    () => {
+      // 그 다음부터 독백 시작 (처음 문장부터)
+      monoIndex = 0;
+      wasInterrupted = false;
+      startMonologueFromCurrent();
+    }
+  );
+}
+
+// 얼굴이 "없어진 상태가 10초 이상" 유지됐을 때 호출
+function onLongNoFace(){
+  interruptMonologue();
+  renderMessage('ai', '...', null);
+}
+
 
 /* =========================
 전시 모드 토글
