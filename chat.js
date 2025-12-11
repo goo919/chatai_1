@@ -1486,31 +1486,36 @@ function interruptMonologue(){
 }
 
 // idle 타이머 관리
-function resetIdleTimer(){
-  if (idleTimer) clearTimeout(idleTimer);
-  idleTimer = null;
+// 독백 강제 중단 (유저가 채팅할 때 호출)
+function interruptMonologue(){
+  if (!isMonologueActive && !monoTimeout) {
+    wasInterrupted = false;
+    updateMonologueIndicator();
+    return;
+  }
+  isMonologueActive = false;
+  if (monoTimeout) {
+    clearTimeout(monoTimeout);
+    monoTimeout = null;
+  }
+  if (monoRestartTimer){
+    clearTimeout(monoRestartTimer);
+    monoRestartTimer = null;
+  }
+  wasInterrupted = true;
   updateMonologueIndicator();
-  // 더 이상 idle 기반으로 독백을 자동 시작하지 않음
 }
 
-
-  idleTimer = setTimeout(()=>{
-    if (wasInterrupted && monoIndex < MONO_LINES.length){
-      wasInterrupted = false;
-      renderMonologueLine(
-        "더 궁금한 건 없는 거지..? 그럼 내 할 말 계속 할게.",
-        () => {
-          setTimeout(()=>{
-            startMonologueFromCurrent();
-          }, 1000);
-        }
-      );
-    } else {
-      wasInterrupted = false;
-      startMonologueFromCurrent();
-    }
-  }, MONO_IDLE_MS);
+// idle 타이머 관리
+// 이제 idle로 독백을 자동 시작하지 않으므로, 타이머만 정리하고 상태만 갱신
+function resetIdleTimer(){
+  if (idleTimer) {
+    clearTimeout(idleTimer);
+    idleTimer = null;
+  }
+  updateMonologueIndicator();
 }
+
 
 // =========================
 // 화면 흔들기 (CSS에 .shake-once 정의 필요)
