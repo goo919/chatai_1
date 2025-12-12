@@ -11,7 +11,7 @@ RIP-KIM chat.js (Safari + 얼굴인식 하이브리드 + ASCII 완전 통합버�
 - 외부 비디오 팝업/ASCII 영상 기능 제거
 - 오른쪽 상단 BGM/음원 패널 + 오디오 큐 시스템 추가
 
-ver.0.0.4
+ver.0.0.5
 
 ========================= */
 
@@ -963,6 +963,43 @@ function centerXFromLandmarks(landmarks){
   return n ? (sum / n) : null;
 }
 
+// =========================
+// 📽 화면 흔들기 (스크린 셰이크)
+// =========================
+let shakeRaf = null;
+
+function shakeScreen(duration = 600, intensity = 10){
+  const target = document.body;
+  if (!target) return;
+
+  const originalTransform = target.style.transform || '';
+  const start = performance.now();
+
+  if (shakeRaf) cancelAnimationFrame(shakeRaf);
+
+  function step(now){
+    const elapsed = now - start;
+    const t = elapsed / duration;
+
+    if (t >= 1){
+      target.style.transform = originalTransform;  // 원래 상태로 복원
+      shakeRaf = null;
+      return;
+    }
+
+    // 끝날수록 진동 줄어들게
+    const strength = intensity * (1 - t);
+    const dx = (Math.random() * 2 - 1) * strength;
+    const dy = (Math.random() * 2 - 1) * strength;
+
+    target.style.transform = `translate(${dx}px, ${dy}px)`;
+    shakeRaf = requestAnimationFrame(step);
+  }
+
+  shakeRaf = requestAnimationFrame(step);
+}
+
+
 /* =========================
 카메라 시작 + 추적 루프
 ========================= */
@@ -1642,6 +1679,9 @@ function onFaceAppearedForMonologue(){
     monoRestartTimer = null;
   }
 
+  // 💥 여기서 화면 흔들기
+  shakeScreen(600, 12); // duration(ms), intensity(px) — 값은 취향대로
+
   // "어이!! 거기 너!!" 한 번 부르고 독백 시작
   renderMonologueLine(
     "어이...! 거기... 너...?",
@@ -1652,6 +1692,7 @@ function onFaceAppearedForMonologue(){
     }
   );
 }
+
 
 function onFaceDisappearedForMonologue(){
   if (faceLostTimer){
@@ -1726,6 +1767,16 @@ function resetIdleTimer(){
 function setExhibitionMode(on){
   EXHIBITION_MODE = !!on;
 
+  // 전시 모드 ON으로 들어갈 때는 얼굴 기반 독백 관련 타이머 정리
+  if (EXHIBITION_MODE){
+    if (faceLostTimer){
+      clearTimeout(faceLostTimer);
+      faceLostTimer = null;
+    }
+    // 다음에 전시 모드 해제했을 때 새로 상태 감지하기 위해 리셋
+    lastHasFace = null;
+  }
+
   // 카메라 프리뷰 패널 숨김/표시
   setCameraPreviewEnabled(!EXHIBITION_MODE);
 
@@ -1742,6 +1793,7 @@ function setExhibitionMode(on){
   updateMonologueIndicator();
   console.log('Exhibition mode:', EXHIBITION_MODE ? 'ON' : 'OFF');
 }
+
 
 
 /* =========================
