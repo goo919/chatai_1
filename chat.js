@@ -11,7 +11,7 @@ RIP-KIM chat.js (Safari + 얼굴인식 하이브리드 + ASCII 완전 통합버�
 - 외부 비디오 팝업/ASCII 영상 기능 제거
 - 오른쪽 상단 BGM/음원 패널 + 오디오 큐 시스템 추가
 
-ver.0.0.2
+ver.0.0.3
 
 ========================= */
 
@@ -1344,91 +1344,6 @@ function updateMonologueModePanelStyles(){
 
   styleBtn(btn1, MONO_MODE === MONO_MODE_FACE_TRIGGER);
   styleBtn(btn2, MONO_MODE === MONO_MODE_ALWAYS);
-}
-
-function createMonologueModePanel(){
-  if (document.getElementById('mono-mode-panel')) return;
-
-  const panel = document.createElement('div');
-  panel.id = 'mono-mode-panel';
-  Object.assign(panel.style, {
-    position: 'fixed',
-    right: '12px',
-    top: '130px', // 오디오 패널 아래 쯤
-    width: '260px',
-    background: 'rgba(0,0,0,0.7)',
-    color: '#f1f1f1',
-    borderRadius: '10px',
-    padding: '6px 8px',
-    boxShadow: '0 4px 12px rgba(0,0,0,0.35)',
-    zIndex: '9996',
-    fontFamily: '-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Apple SD Gothic Neo","Noto Sans KR","맑은 고딕",sans-serif',
-    fontSize: '11px',
-    display: EXHIBITION_MODE ? 'none' : 'block'
-  });
-
-  const title = document.createElement('div');
-  title.textContent = '독백 모드';
-  title.style.fontWeight = '600';
-  title.style.marginBottom = '4px';
-
-  const row = document.createElement('div');
-  Object.assign(row.style, {
-    display: 'flex',
-    gap: '6px'
-  });
-
-  const btn1 = document.createElement('button');
-  btn1.type = 'button';
-  btn1.dataset.mode = '1';
-  btn1.textContent = '1. 관객 인식 모드';
-  Object.assign(btn1.style, {
-    flex: '1',
-    padding: '4px 6px',
-    borderRadius: '4px',
-    border: '1px solid rgba(255,255,255,0.28)',
-    background: 'rgba(255,255,255,0.06)',
-    color: '#f1f1f1',
-    cursor: 'pointer',
-    fontSize: '11px',
-    whiteSpace: 'nowrap'
-  });
-
-  const btn2 = document.createElement('button');
-  btn2.type = 'button';
-  btn2.dataset.mode = '2';
-  btn2.textContent = '2. 항상 독백 모드';
-  Object.assign(btn2.style, {
-    flex: '1',
-    padding: '4px 6px',
-    borderRadius: '4px',
-    border: '1px solid rgba(255,255,255,0.28)',
-    background: 'rgba(255,255,255,0.06)',
-    color: '#f1f1f1',
-    cursor: 'pointer',
-    fontSize: '11px',
-    whiteSpace: 'nowrap'
-  });
-
-  btn1.addEventListener('click', () => {
-    MONO_MODE = MONO_MODE_FACE_TRIGGER;
-    updateMonologueModePanelStyles();
-  });
-
-  btn2.addEventListener('click', () => {
-    MONO_MODE = MONO_MODE_ALWAYS;
-    updateMonologueModePanelStyles();
-  });
-
-  row.appendChild(btn1);
-  row.appendChild(btn2);
-
-  panel.appendChild(title);
-  panel.appendChild(row);
-
-  document.body.appendChild(panel);
-  monoModePanel = panel;
-  updateMonologueModePanelStyles();
 }
 
 /* =========================
