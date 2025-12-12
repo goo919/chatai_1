@@ -11,7 +11,7 @@ RIP-KIM chat.js (Safari + 얼굴인식 하이브리드 + ASCII 완전 통합버�
 - 외부 비디오 팝업/ASCII 영상 기능 제거
 - 오른쪽 상단 BGM/음원 패널 + 오디오 큐 시스템 추가
 
-ver.0.0.1
+ver.0.0.2
 
 ========================= */
 
@@ -146,84 +146,6 @@ let modeBtn1 = null;
 let modeBtn2 = null;
 
 
-// 🔀 독백 모드 (1: 관객 인식 모드, 2: 항상 독백 모드)
-const MONO_MODE_FACE_TRIGGER = 1;
-const MONO_MODE_ALWAYS       = 2;
-let MONO_MODE = MONO_MODE_ALWAYS;  // 기본값: 2번 모드 (지금까지와 동일)
-let monoModePanel = null;
-
-function createMonologueIndicator(){
-  if (document.getElementById('mono-indicator')) return;
-
-  const box = document.createElement('div');
-  box.id = 'mono-indicator';
-
-  Object.assign(box.style, {
-    position: 'fixed',
-    right: '12px',
-    top: '12px',
-    padding: '6px 10px',
-    borderRadius: '999px',
-    background: 'rgba(0,0,0,0.7)',
-    color: '#f1f1f1',
-    fontSize: '11px',
-    fontFamily: '-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Apple SD Gothic Neo","Noto Sans KR","맑은 고딕",sans-serif',
-    border: '1px solid rgba(255,255,255,0.25)',
-    boxShadow: '0 2px 8px rgba(0,0,0,0.35)',
-    zIndex: '9998',
-    display: 'flex',
-    alignItems: 'center',
-    gap: '6px',
-    pointerEvents: 'none',
-    opacity: '0.7'
-  });
-
-  const dot = document.createElement('span');
-  dot.id = 'mono-indicator-dot';
-  Object.assign(dot.style, {
-    width: '8px',
-    height: '8px',
-    borderRadius: '50%',
-    background: '#888',
-    flexShrink: '0'
-  });
-
-  const label = document.createElement('span');
-  label.id = 'mono-indicator-label';
-  label.textContent = '독백: 대기 중';
-
-  box.appendChild(dot);
-  box.appendChild(label);
-  document.body.appendChild(box);
-
-  monoIndicatorEl = box;
-  updateMonologueIndicator();
-}
-
-function updateMonologueIndicator(){
-  if (!monoIndicatorEl) return;
-
-  // 전시 모드일 땐 완전 숨김
-  if (EXHIBITION_MODE){
-    monoIndicatorEl.style.display = 'none';
-    return;
-  }
-
-  monoIndicatorEl.style.display = 'flex';
-
-  const dot   = document.getElementById('mono-indicator-dot');
-  const label = document.getElementById('mono-indicator-label');
-
-  if (isMonologueActive){
-    label.textContent = '독백: 진행 중';
-    if (dot) dot.style.background = '#ff4d4f';
-    monoIndicatorEl.style.opacity = '1';
-  } else {
-    label.textContent = '독백: 대기 중';
-    if (dot) dot.style.background = '#888';
-    monoIndicatorEl.style.opacity = '0.6';
-  }
-}
 
 /* =========================
 모음 판별 (입 모양 토글용)
