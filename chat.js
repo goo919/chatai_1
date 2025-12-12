@@ -131,6 +131,18 @@ let monoIndicatorEl = null;
 // 전시 모드 플래그 (⌘/Ctrl+Enter 로 토글)
 let EXHIBITION_MODE = false;
 
+// 🔁 독백 모드
+// 1: 얼굴 기반 ("어이!! 거기 너!!" + 얼굴 끊기면 멈춤)
+// 2: 얼굴과 상관없이 idle 타이머로 독백
+let MONO_MODE = 1;  // 기본은 예전처럼 얼굴 기반
+
+// 모드 전환 패널
+let modePanel = null;
+let modeLabel = null;
+let modeBtn1 = null;
+let modeBtn2 = null;
+
+
 // 🔀 독백 모드 (1: 관객 인식 모드, 2: 항상 독백 모드)
 const MONO_MODE_FACE_TRIGGER = 1;
 const MONO_MODE_ALWAYS       = 2;
@@ -852,6 +864,11 @@ let hasFace   = false;
 let missCount = 0;
 const MISS_THRESHOLD = 4;
 
+// 👁 얼굴 등장/퇴장 추적용
+let lastHasFace = null;
+let faceLostTimer = null;
+
+
 // 초상 렌더
 function showPortrait(){
   if (!portraitEl) return;
@@ -1040,9 +1057,13 @@ async function startCameraAndTracking(){
             if (missCount < MISS_THRESHOLD) missCount++;
             if (missCount >= MISS_THRESHOLD) hasFace = false;
           }
+
+          // 👁 얼굴 등장/퇴장에 따른 독백 제어 (모드 1)
+          handleFaceMonologueTransition();
         }
 
         showPortrait();
+
 
         if (camPanel && camStatus){
           camPanel.style.display = CAMERA_PREVIEW_ENABLED ? 'block' : 'none';
@@ -1252,6 +1273,129 @@ function createAudioPanel(){
   audioFileInput = fileInput;
   audioStatusEl = status;
 }
+
+/* =========================
+독백 모드 전환 패널
+- 모드 1: 얼굴 기반 ("어이!! 거기 너!!")
+- 모드 2: idle 기반 (지금 코드처럼 15초 후 독백)
+========================= */
+function setMonologueMode(mode){
+  if (mode !== 1 && mode !== 2) return;
+  if (MONO_MODE === mode) return;
+
+  MONO_MODE = mode;
+
+  // 모드 전환 시 타이머 정리
+  if (idleTimer){
+    clearTimeout(idleTimer);
+    idleTimer = null;
+  }
+  if (faceLostTimer){
+    clearTimeout(faceLostTimer);
+    faceLostTimer = null;
+  }
+
+  if (MONO_MODE === 2){
+    // idle 기반이니까 idle 타이머 재설정
+    resetIdleTimer();
+  }
+
+  updateMonologueModeUI();
+}
+
+function updateMonologueModeUI(){
+  if (!modePanel) return;
+
+  // 전시 모드에서는 패널 자체 숨김
+  modePanel.style.display = EXHIBITION_MODE ? 'none' : 'flex';
+
+  if (!modeLabel || !modeBtn1 || !modeBtn2) return;
+
+  modeLabel.textContent =
+    MONO_MODE === 1 ? '모드 1: 얼굴 기반 독백' : '모드 2: 항상 독백 (idle)';
+
+  const activeBg = 'rgba(255,255,255,0.2)';
+  const inactiveBg = 'rgba(0,0,0,0.2)';
+
+  modeBtn1.style.background = (MONO_MODE === 1) ? activeBg : inactiveBg;
+  modeBtn2.style.background = (MONO_MODE === 2) ? activeBg : inactiveBg;
+}
+
+function createModePanel(){
+  if (document.getElementById('mono-mode-panel')) return;
+
+  const panel = document.createElement('div');
+  panel.id = 'mono-mode-panel';
+  Object.assign(panel.style, {
+    position: 'fixed',
+    right: '12px',
+    bottom: '12px',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '4px',
+    padding: '6px 8px',
+    background: 'rgba(0,0,0,0.7)',
+    color: '#f1f1f1',
+    borderRadius: '8px',
+    border: '1px solid rgba(255,255,255,0.3)',
+    fontFamily: '-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Apple SD Gothic Neo","Noto Sans KR","맑은 고딕",sans-serif',
+    fontSize: '11px',
+    zIndex: '9996'
+  });
+
+  const label = document.createElement('div');
+  label.style.marginBottom = '2px';
+
+  const buttonsRow = document.createElement('div');
+  Object.assign(buttonsRow.style, {
+    display: 'flex',
+    gap: '4px'
+  });
+
+  const btn1 = document.createElement('button');
+  btn1.textContent = '1. 시선 기반';
+  Object.assign(btn1.style, {
+    flex: '1',
+    padding: '4px 6px',
+    borderRadius: '4px',
+    border: '1px solid rgba(255,255,255,0.3)',
+    background: 'rgba(0,0,0,0.2)',
+    color: '#f1f1f1',
+    cursor: 'pointer',
+    fontSize: '11px'
+  });
+  btn1.addEventListener('click', ()=>setMonologueMode(1));
+
+  const btn2 = document.createElement('button');
+  btn2.textContent = '2. 항상 독백';
+  Object.assign(btn2.style, {
+    flex: '1',
+    padding: '4px 6px',
+    borderRadius: '4px',
+    border: '1px solid rgba(255,255,255,0.3)',
+    background: 'rgba(0,0,0,0.2)',
+    color: '#f1f1f1',
+    cursor: 'pointer',
+    fontSize: '11px'
+  });
+  btn2.addEventListener('click', ()=>setMonologueMode(2));
+
+  buttonsRow.appendChild(btn1);
+  buttonsRow.appendChild(btn2);
+
+  panel.appendChild(label);
+  panel.appendChild(buttonsRow);
+
+  document.body.appendChild(panel);
+
+  modePanel = panel;
+  modeLabel = label;
+  modeBtn1 = btn1;
+  modeBtn2 = btn2;
+
+  updateMonologueModeUI();
+}
+
 
 /* =========================
 독백 모드 패널 (1 / 2 토글)
@@ -1533,6 +1677,74 @@ function startMonologueFromCurrent(){
   playMonologueLine();
 }
 
+// 얼굴 등장/퇴장에 따라 독백 제어 (모드 1 전용)
+function handleFaceMonologueTransition(){
+  if (MONO_MODE !== 1) return;
+
+  if (lastHasFace === null){
+    lastHasFace = hasFace;
+    return;
+  }
+
+  // 안 보이다가 -> 보임 : "어이!! 거기 너!!" + 독백 시작
+  if (!lastHasFace && hasFace){
+    onFaceAppearedForMonologue();
+  }
+  // 보이다가 -> 안 보임 : 5초 뒤 "..." + 독백 중단
+  else if (lastHasFace && !hasFace){
+    onFaceDisappearedForMonologue();
+  }
+
+  lastHasFace = hasFace;
+}
+
+function onFaceAppearedForMonologue(){
+  if (faceLostTimer){
+    clearTimeout(faceLostTimer);
+    faceLostTimer = null;
+  }
+
+  // 이미 독백 중이면 굳이 다시 부르지 않음
+  if (isMonologueActive) return;
+
+  // idle 타이머/재시작 타이머 정리
+  if (idleTimer){
+    clearTimeout(idleTimer);
+    idleTimer = null;
+  }
+  if (monoRestartTimer){
+    clearTimeout(monoRestartTimer);
+    monoRestartTimer = null;
+  }
+
+  // "어이!! 거기 너!!" 한 번 부르고 독백 시작
+  renderMonologueLine(
+    "어이...! 거기... 너...?",
+    () => {
+      if (monoIndex >= MONO_LINES.length) monoIndex = 0;
+      wasInterrupted = false;
+      startMonologueFromCurrent();
+    }
+  );
+}
+
+function onFaceDisappearedForMonologue(){
+  if (faceLostTimer){
+    clearTimeout(faceLostTimer);
+  }
+  faceLostTimer = setTimeout(()=>{
+    // 모드 바뀌었거나 얼굴이 다시 잡히면 취소
+    if (MONO_MODE !== 1) return;
+    if (hasFace) return;
+
+    if (isMonologueActive){
+      interruptMonologue();
+      renderMonologueLine("...", ()=>{});
+    }
+  }, 5000); // 5초 후
+}
+
+
 // 독백 강제 중단 (유저가 채팅할 때 호출)
 function interruptMonologue(){
   if (!isMonologueActive && !monoTimeout) {
@@ -1558,13 +1770,10 @@ function resetIdleTimer(){
   if (idleTimer) clearTimeout(idleTimer);
   updateMonologueIndicator();
 
-  idleTimer = setTimeout(()=>{
-    // 1번 모드: 얼굴이 안 보이면 독백 시작하지 않고 다시 대기
-    if (MONO_MODE === MONO_MODE_FACE_TRIGGER && !hasFace){
-      resetIdleTimer();
-      return;
-    }
+  // 🔁 모드 2에서만 idle 타이머로 독백 시작
+  if (MONO_MODE !== 2) return;
 
+  idleTimer = setTimeout(()=>{
     if (wasInterrupted && monoIndex < MONO_LINES.length){
       wasInterrupted = false;
       renderMonologueLine(
@@ -1581,6 +1790,7 @@ function resetIdleTimer(){
     }
   }, MONO_IDLE_MS);
 }
+
 
 /* =========================
 전시 모드 토글
@@ -1599,14 +1809,15 @@ function setExhibitionMode(on){
     audioPanel.style.display = EXHIBITION_MODE ? 'none' : 'block';
   }
 
-  // 독백 모드 패널 숨김/표시
-  if (monoModePanel){
-    monoModePanel.style.display = EXHIBITION_MODE ? 'none' : 'block';
+  // 🔁 독백 모드 패널도 전시 모드에서는 숨김
+  if (modePanel){
+    modePanel.style.display = EXHIBITION_MODE ? 'none' : 'flex';
   }
 
   updateMonologueIndicator();
   console.log('Exhibition mode:', EXHIBITION_MODE ? 'ON' : 'OFF');
 }
+
 
 /* =========================
 이벤트
@@ -1647,8 +1858,9 @@ window.addEventListener('DOMContentLoaded', () => {
   showPortrait();
 
   createMonologueIndicator();
-  createAudioPanel();      // 🔊 오른쪽 상단 음원 패널 생성
-  createMonologueModePanel(); // 🔀 독백 모드 패널 생성
+  createAudioPanel(); // 🔊 오른쪽 상단 음원 패널 생성
+  createModePanel();  // 🔁 독백 모드 전환 패널 생성
+
 
   const greet = '...왔구나.';
   const p = document.createElement('p');
