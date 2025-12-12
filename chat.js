@@ -11,7 +11,7 @@ RIP-KIM chat.js (Safari + 얼굴인식 하이브리드 + ASCII 완전 통합버�
 - 외부 비디오 팝업/ASCII 영상 기능 제거
 - 오른쪽 상단 BGM/음원 패널 + 오디오 큐 시스템 추가
 
-ver.0.0.5
+ver.0.0.6
 
 ========================= */
 
@@ -1636,9 +1636,6 @@ function startMonologueFromCurrent(){
 
 // 얼굴 등장/퇴장에 따라 독백 제어 (모드 1 전용)
 function handleFaceMonologueTransition(){
-  // 전시 모드에서는 얼굴 기반 독백 제어를 아예 비활성화
-  if (EXHIBITION_MODE) return;
-
   // 모드 1(시선 기반)이 아닐 때도 동작 X
   if (MONO_MODE !== 1) return;
 
@@ -1658,6 +1655,7 @@ function handleFaceMonologueTransition(){
 
   lastHasFace = hasFace;
 }
+
 
 
 function onFaceAppearedForMonologue(){
