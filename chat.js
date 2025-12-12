@@ -1599,6 +1599,10 @@ function startMonologueFromCurrent(){
 
 // 얼굴 등장/퇴장에 따라 독백 제어 (모드 1 전용)
 function handleFaceMonologueTransition(){
+  // 전시 모드에서는 얼굴 기반 독백 제어를 아예 비활성화
+  if (EXHIBITION_MODE) return;
+
+  // 모드 1(시선 기반)이 아닐 때도 동작 X
   if (MONO_MODE !== 1) return;
 
   if (lastHasFace === null){
@@ -1617,6 +1621,7 @@ function handleFaceMonologueTransition(){
 
   lastHasFace = hasFace;
 }
+
 
 function onFaceAppearedForMonologue(){
   if (faceLostTimer){
