@@ -131,6 +131,80 @@ let wasInterrupted = false;  // 유저 입력으로 독백이 끊겼는지 여�
 // =========================
 let monoIndicatorEl = null;
 
+function createMonologueIndicator(){
+  if (document.getElementById('mono-indicator')) return;
+
+  const box = document.createElement('div');
+  box.id = 'mono-indicator';
+
+  Object.assign(box.style, {
+    position: 'fixed',
+    right: '12px',
+    top: '12px',
+    padding: '6px 10px',
+    borderRadius: '999px',
+    background: 'rgba(0,0,0,0.7)',
+    color: '#f1f1f1',
+    fontSize: '11px',
+    fontFamily: '-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Apple SD Gothic Neo","Noto Sans KR","맑은 고딕",sans-serif',
+    border: '1px solid rgba(255,255,255,0.25)',
+    boxShadow: '0 2px 8px rgba(0,0,0,0.35)',
+    zIndex: '9998',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '6px',
+    pointerEvents: 'none',
+    opacity: '0.7'
+  });
+
+  const dot = document.createElement('span');
+  dot.id = 'mono-indicator-dot';
+  Object.assign(dot.style, {
+    width: '8px',
+    height: '8px',
+    borderRadius: '50%',
+    background: '#888',
+    flexShrink: '0'
+  });
+
+  const label = document.createElement('span');
+  label.id = 'mono-indicator-label';
+  label.textContent = '독백: 대기 중';
+
+  box.appendChild(dot);
+  box.appendChild(label);
+  document.body.appendChild(box);
+
+  monoIndicatorEl = box;
+  updateMonologueIndicator();
+}
+
+function updateMonologueIndicator(){
+  if (!monoIndicatorEl) return;
+
+  // 전시 모드일 땐 완전 숨김
+  if (EXHIBITION_MODE){
+    monoIndicatorEl.style.display = 'none';
+    return;
+  }
+
+  monoIndicatorEl.style.display = 'flex';
+
+  const dot   = document.getElementById('mono-indicator-dot');
+  const label = document.getElementById('mono-indicator-label');
+
+  if (isMonologueActive){
+    label.textContent = '독백: 진행 중';
+    if (dot) dot.style.background = '#ff4d4f';
+    monoIndicatorEl.style.opacity = '1';
+  } else {
+    label.textContent = '독백: 대기 중';
+    if (dot) dot.style.background = '#888';
+    monoIndicatorEl.style.opacity = '0.6';
+  }
+}
+
+
 // 전시 모드 플래그 (⌘/Ctrl+Enter 로 토글)
 let EXHIBITION_MODE = false;
 
@@ -1156,6 +1230,7 @@ function createAudioPanel(){
   });
 
   // 재생/일시정지 버튼 클릭 시: 이게 "사용자 제스처"라 정책에 안 걸림
+  // 재생/일시정지 버튼 클릭 시: 이게 "사용자 제스처"라 정책에 안 걸림
   playBtn.addEventListener('click', async () => {
     if (!audioElement.src){
       status.textContent = '먼저 음원 파일을 선택해줘.';
@@ -1163,13 +1238,19 @@ function createAudioPanel(){
     }
 
     try{
-      // (필요하면 Web AudioContext도 깨워줌 – 현재 비프용)
+      // 비프용 AudioContext가 있으면, 가볍게 resume 시도만 하고
+      // 실패해도 전체 재생이 막히지 않도록 별도 처리
       if (audioCtx && audioCtx.state === 'suspended'){
-        await audioCtx.resume();
+        try {
+          audioCtx.resume();
+        } catch (e) {
+          console.warn('AudioContext resume failed:', e);
+          // 여기서는 에러를 UI에 보여줄 필요는 없음
+        }
       }
 
       if (!isPlaying){
-        await audioElement.play();
+        await audioElement.play();              // ⬅ 진짜 중요한 재생 호출
         isPlaying = true;
         playBtn.textContent = '⏸ 일시정지';
         status.textContent = '재생 중...';
@@ -1184,6 +1265,7 @@ function createAudioPanel(){
       console.error('audio play error', err);
     }
   });
+
 
   fileRow.appendChild(fileInput);
   fileRow.appendChild(playBtn);
@@ -1325,7 +1407,6 @@ function createModePanel(){
 /* =========================
 독백 모드 패널 (1 / 2 토글)
 - EXHIBITION_MODE 일 때는 숨김
-========================= */
 function updateMonologueModePanelStyles(){
   if (!monoModePanel) return;
   const btn1 = monoModePanel.querySelector('button[data-mode="1"]');
@@ -1346,7 +1427,6 @@ function updateMonologueModePanelStyles(){
   styleBtn(btn2, MONO_MODE === MONO_MODE_ALWAYS);
 }
 
-/* =========================
 말하기 + 입/비프 동기화
 ========================= */
 function speakWithAnimation(targetEl, text, maxLength = 160, delay = 16, onDone = null){
@@ -1701,7 +1781,6 @@ window.addEventListener('DOMContentLoaded', () => {
   createAudioPanel(); // 🔊 오른쪽 상단 음원 패널 생성
   createModePanel();  // 🔁 독백 모드 전환 패널 생성
 
-
   const greet = '...왔구나.';
   const p = document.createElement('p');
   p.className = 'ai';
@@ -1723,6 +1802,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
   resetIdleTimer();
 });
+
 
 // 전시 모드 단축키: ⌘+Enter / Ctrl+Enter
 window.addEventListener('keydown', (e)=>{
