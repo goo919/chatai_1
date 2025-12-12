@@ -9,7 +9,7 @@ RIP-KIM chat.js (Safari + 얼굴인식 하이브리드 + ASCII 완전 통합버�
 - 여러 명이면 가장 큰 얼굴 기준
 - ASCII 초상 방향/깜빡임/입 모양 연동 (모음에 맞춰 토글)
 - 외부 비디오 팝업/ASCII 영상 기능 제거
-- 오른쪽 상단 BGM/음원 패널 + 오디오 큐 시스템 추가ㅇ
+- 오른쪽 상단 BGM/음원 패널 + 오디오 큐 시스템 추가
 ========================= */
 
 // === DOM ===
@@ -130,6 +130,12 @@ let monoIndicatorEl = null;
 
 // 전시 모드 플래그 (⌘/Ctrl+Enter 로 토글)
 let EXHIBITION_MODE = false;
+
+// 🔀 독백 모드 (1: 관객 인식 모드, 2: 항상 독백 모드)
+const MONO_MODE_FACE_TRIGGER = 1;
+const MONO_MODE_ALWAYS       = 2;
+let MONO_MODE = MONO_MODE_ALWAYS;  // 기본값: 2번 모드 (지금까지와 동일)
+let monoModePanel = null;
 
 function createMonologueIndicator(){
   if (document.getElementById('mono-indicator')) return;
@@ -768,19 +774,8 @@ let CAMERA_PREVIEW_ENABLED = true;
 window.setCameraPreviewEnabled = function(flag){
   CAMERA_PREVIEW_ENABLED = !!flag;
   const panel = document.getElementById('cam-preview');
-  if (!panel) return;
-
-  if (CAMERA_PREVIEW_ENABLED){
-    // 눈에는 보이도록
-    panel.style.opacity = '1';
-    panel.style.pointerEvents = 'auto';
-  } else {
-    // 화면에서만 안 보이게 (비디오는 계속 재생)
-    panel.style.opacity = '0';
-    panel.style.pointerEvents = 'none';
-  }
+  if (panel) panel.style.display = CAMERA_PREVIEW_ENABLED ? 'block' : 'none';
 };
-
 
 let camPanel = null, camVideo = null, camStatus = null;
 
@@ -803,12 +798,9 @@ function createCameraPreview(){
     overflow: 'hidden',
     zIndex: '9999',
     boxShadow: '0 4px 12px rgba(0,0,0,0.35)',
-    display: 'block',                // 항상 block
+    display: CAMERA_PREVIEW_ENABLED ? 'block' : 'none',
     backdropFilter: 'blur(2px)',
-    opacity: CAMERA_PREVIEW_ENABLED ? '1' : '0',
-    pointerEvents: CAMERA_PREVIEW_ENABLED ? 'auto' : 'none',
   });
-
 
   const video = document.createElement('video');
   Object.assign(video, { autoplay:true, playsInline:true, muted:true });
@@ -860,12 +852,6 @@ let hasFace   = false;
 let missCount = 0;
 const MISS_THRESHOLD = 4;
 
-let lastHasFace = false;        // 직전 프레임의 얼굴 인식 상태
-let noFaceStartedAt = null;     // 얼굴이 안 보이기 시작한 시간 (ms)
-let noFaceDotsSent = false; 
-let alertFlashTimer = null;
-
-
 // 초상 렌더
 function showPortrait(){
   if (!portraitEl) return;
@@ -878,17 +864,6 @@ function showPortrait(){
   }
   portraitEl.textContent = frame;
 }
-
-// idle 타이머 관리
-function resetIdleTimer(){
-  if (idleTimer) {
-    clearTimeout(idleTimer);
-    idleTimer = null;
-  }
-  updateMonologueIndicator();
-  // 더 이상 idle 기반으로 독백을 자동 시작하지 않음
-}
-
 
 // 입 상태 리셋
 function resetMouth(){
@@ -1008,6 +983,8 @@ async function startCameraAndTracking(){
     let last = 0;
     const DETECT_INTERVAL = 150;
 
+    let prevHasFace = false;
+
     const tick = async (t)=>{
       try{
         let detectedThisFrame = false;
@@ -1063,42 +1040,9 @@ async function startCameraAndTracking(){
             if (missCount < MISS_THRESHOLD) missCount++;
             if (missCount >= MISS_THRESHOLD) hasFace = false;
           }
-
-          // 👇 얼굴 등장/퇴장 이벤트 처리
-          const nowMs = performance.now();
-
-          if (hasFace){
-            // 얼굴이 "방금" 나타난 순간 (false → true)
-            if (!lastHasFace){
-              onFaceAppeared();
-            }
-            // 얼굴이 있는 동안에는 '사람 없음' 타이머/플래그 리셋
-            noFaceStartedAt = null;
-            noFaceDotsSent = false;
-          } else {
-            // 얼굴이 없을 때
-            if (lastHasFace){
-              // 방금 사라진 순간 (true → false)
-              noFaceStartedAt = nowMs;
-              noFaceDotsSent = false;
-              interruptMonologue();
-            } else {
-              // 처음부터 계속 없거나, 이미 없는 상태 유지 중
-              if (!noFaceStartedAt) noFaceStartedAt = nowMs;
-            }
-
-            // 얼굴 없음 상태가 10초 이상 지속되면 '...' 한 번만 출력
-            if (!noFaceDotsSent && noFaceStartedAt && (nowMs - noFaceStartedAt >= 10000)){
-              onLongNoFace();
-              noFaceDotsSent = true;
-            }
-          }
-
-          lastHasFace = hasFace;
         }
 
         showPortrait();
-
 
         if (camPanel && camStatus){
           camPanel.style.display = CAMERA_PREVIEW_ENABLED ? 'block' : 'none';
@@ -1118,6 +1062,8 @@ async function startCameraAndTracking(){
               `엔진: ${engine}`;
           }
         }
+
+        prevHasFace = hasFace;
       }catch(e){
       }
       trackingTimer = requestAnimationFrame(tick);
@@ -1305,6 +1251,115 @@ function createAudioPanel(){
   audioPanel = panel;
   audioFileInput = fileInput;
   audioStatusEl = status;
+}
+
+/* =========================
+독백 모드 패널 (1 / 2 토글)
+- EXHIBITION_MODE 일 때는 숨김
+========================= */
+function updateMonologueModePanelStyles(){
+  if (!monoModePanel) return;
+  const btn1 = monoModePanel.querySelector('button[data-mode="1"]');
+  const btn2 = monoModePanel.querySelector('button[data-mode="2"]');
+
+  function styleBtn(btn, active){
+    if (!btn) return;
+    if (active){
+      btn.style.background = 'rgba(255,255,255,0.18)';
+      btn.style.borderColor = 'rgba(0, 255, 180, 0.8)';
+    } else {
+      btn.style.background = 'rgba(255,255,255,0.06)';
+      btn.style.borderColor = 'rgba(255,255,255,0.28)';
+    }
+  }
+
+  styleBtn(btn1, MONO_MODE === MONO_MODE_FACE_TRIGGER);
+  styleBtn(btn2, MONO_MODE === MONO_MODE_ALWAYS);
+}
+
+function createMonologueModePanel(){
+  if (document.getElementById('mono-mode-panel')) return;
+
+  const panel = document.createElement('div');
+  panel.id = 'mono-mode-panel';
+  Object.assign(panel.style, {
+    position: 'fixed',
+    right: '12px',
+    top: '130px', // 오디오 패널 아래 쯤
+    width: '260px',
+    background: 'rgba(0,0,0,0.7)',
+    color: '#f1f1f1',
+    borderRadius: '10px',
+    padding: '6px 8px',
+    boxShadow: '0 4px 12px rgba(0,0,0,0.35)',
+    zIndex: '9996',
+    fontFamily: '-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Apple SD Gothic Neo","Noto Sans KR","맑은 고딕",sans-serif',
+    fontSize: '11px',
+    display: EXHIBITION_MODE ? 'none' : 'block'
+  });
+
+  const title = document.createElement('div');
+  title.textContent = '독백 모드';
+  title.style.fontWeight = '600';
+  title.style.marginBottom = '4px';
+
+  const row = document.createElement('div');
+  Object.assign(row.style, {
+    display: 'flex',
+    gap: '6px'
+  });
+
+  const btn1 = document.createElement('button');
+  btn1.type = 'button';
+  btn1.dataset.mode = '1';
+  btn1.textContent = '1. 관객 인식 모드';
+  Object.assign(btn1.style, {
+    flex: '1',
+    padding: '4px 6px',
+    borderRadius: '4px',
+    border: '1px solid rgba(255,255,255,0.28)',
+    background: 'rgba(255,255,255,0.06)',
+    color: '#f1f1f1',
+    cursor: 'pointer',
+    fontSize: '11px',
+    whiteSpace: 'nowrap'
+  });
+
+  const btn2 = document.createElement('button');
+  btn2.type = 'button';
+  btn2.dataset.mode = '2';
+  btn2.textContent = '2. 항상 독백 모드';
+  Object.assign(btn2.style, {
+    flex: '1',
+    padding: '4px 6px',
+    borderRadius: '4px',
+    border: '1px solid rgba(255,255,255,0.28)',
+    background: 'rgba(255,255,255,0.06)',
+    color: '#f1f1f1',
+    cursor: 'pointer',
+    fontSize: '11px',
+    whiteSpace: 'nowrap'
+  });
+
+  btn1.addEventListener('click', () => {
+    MONO_MODE = MONO_MODE_FACE_TRIGGER;
+    updateMonologueModePanelStyles();
+  });
+
+  btn2.addEventListener('click', () => {
+    MONO_MODE = MONO_MODE_ALWAYS;
+    updateMonologueModePanelStyles();
+  });
+
+  row.appendChild(btn1);
+  row.appendChild(btn2);
+
+  panel.appendChild(title);
+  panel.appendChild(row);
+
+  document.body.appendChild(panel);
+  monoModePanel = panel;
+  updateMonologueModePanelStyles();
 }
 
 /* =========================
@@ -1499,163 +1554,38 @@ function interruptMonologue(){
 }
 
 // idle 타이머 관리
-// 독백 강제 중단 (유저가 채팅할 때 호출)
-function interruptMonologue(){
-  if (!isMonologueActive && !monoTimeout) {
-    wasInterrupted = false;
-    updateMonologueIndicator();
-    return;
-  }
-  isMonologueActive = false;
-  if (monoTimeout) {
-    clearTimeout(monoTimeout);
-    monoTimeout = null;
-  }
-  if (monoRestartTimer){
-    clearTimeout(monoRestartTimer);
-    monoRestartTimer = null;
-  }
-  wasInterrupted = true;
+function resetIdleTimer(){
+  if (idleTimer) clearTimeout(idleTimer);
   updateMonologueIndicator();
-}
 
-// idle 타이머 관리
-// 이제 idle로 독백을 자동 시작하지 않으므로, 타이머만 정리하고 상태만 갱신
-// =========================
-// 화면 흔들기 (CSS에 .shake-once 정의 필요)
-// =========================
-// =========================
-// 화면 흔들기 (강하게 흔들기)
-// =========================
-function shakeScreen(){
-  const target = document.body;
-  if (!target) return;
-
-  const duration = 600; // 전체 흔들리는 시간 ms
-  const start = performance.now();
-
-  function frame(t){
-    const elapsed = t - start;
-    if (elapsed >= duration){
-      target.style.transform = '';
+  idleTimer = setTimeout(()=>{
+    // 1번 모드: 얼굴이 안 보이면 독백 시작하지 않고 다시 대기
+    if (MONO_MODE === MONO_MODE_FACE_TRIGGER && !hasFace){
+      resetIdleTimer();
       return;
     }
 
-    // 시간이 지날수록 조금씩 진동 감소
-    const progress  = elapsed / duration;
-    const intensity = 18 * (1 - progress); // 최대 약 18px 정도
-
-    const offsetX = (Math.random() * 2 - 1) * intensity;
-    const offsetY = (Math.random() * 2 - 1) * intensity;
-
-    target.style.transform = `translate(${offsetX}px, ${offsetY}px)`;
-    requestAnimationFrame(frame);
-  }
-
-  requestAnimationFrame(frame);
-}
-
-// =========================
-// 경고 모드: 빨간색 번쩍번쩍
-// =========================
-function startAlertEffect(){
-  // 기존 타이머가 있으면 먼저 정리
-  if (alertFlashTimer) {
-    clearInterval(alertFlashTimer);
-    alertFlashTimer = null;
-  }
-
-  // 배경/텍스트 기본 스타일 저장은 간단히 초기값 복원 쪽으로 처리
-  let on = false;
-
-  alertFlashTimer = setInterval(() => {
-    on = !on;
-
-    const body = document.body;
-    if (body) {
-      body.style.color = on ? '#ff3333' : '#ffffff';
-    }
-    if (portraitEl) {
-      portraitEl.style.color = on ? '#ff3333' : '';
-    }
-    if (chatBox) {
-      chatBox.style.color = on ? '#ff4444' : '';
-    }
-  }, 120); // 0.12초마다 깜빡
-}
-
-function stopAlertEffect(){
-  if (alertFlashTimer) {
-    clearInterval(alertFlashTimer);
-    alertFlashTimer = null;
-  }
-
-  // 색상 원래대로(기본값으로 돌려놓기)
-  const body = document.body;
-  if (body) body.style.color = '';
-  if (portraitEl) portraitEl.style.color = '';
-  if (chatBox) chatBox.style.color = '';
-}
-
-
-
-// 얼굴이 새로 "나타났을" 때 호출
-function onFaceAppeared(){
-  // 혹시 진행 중이던 독백이 있으면 정리
-  interruptMonologue();
-
-  // '사람 없음' 상태 관련 타이머/플래그 리셋
-  noFaceStartedAt = null;
-  noFaceDotsSent = false;
-
-  // 화면 한 번 흔들기 + 큰 소리로 부르기
-  shakeScreen();
-// 얼굴이 새로 "나타났을" 때 호출
-function onFaceAppeared(){
-  // 혹시 진행 중이던 독백이 있으면 정리
-  interruptMonologue();
-
-  // '사람 없음' 상태 관련 타이머/플래그 리셋
-  noFaceStartedAt = null;
-  noFaceDotsSent = false;
-
-  // 강한 화면 흔들기 + 빨간 플래시 시작
-  shakeScreen();
-  startAlertEffect();
-
-  // 크게 불러 세우기
-  renderMessage(
-    'ai',
-    '어이!!!!!!!!!!!!!!!!!!!!!!!! 너!!!!!!!!!!! 지나가는 너!!!!!!! 내얘기좀 들어봐!!!!!!!!!',
-    () => {
-      // "어이!!!" 말 다 끝나면 플래시/효과 끄고, 이어서 독백 시작
-      stopAlertEffect();
-
-      // 이미 전부 말한 상태면만 0으로 돌리고, 아니면 이어서
-      if (monoIndex >= MONO_LINES.length) {
-        monoIndex = 0;
-      }
-
+    if (wasInterrupted && monoIndex < MONO_LINES.length){
+      wasInterrupted = false;
+      renderMonologueLine(
+        "더 궁금한 건 없는 거지..? 그럼 내 할 말 계속 할게.",
+        () => {
+          setTimeout(()=>{
+            startMonologueFromCurrent();
+          }, 1000);
+        }
+      );
+    } else {
       wasInterrupted = false;
       startMonologueFromCurrent();
     }
-  );
+  }, MONO_IDLE_MS);
 }
-
-}
-
-// 얼굴이 "없어진 상태가 10초 이상" 유지됐을 때 호출
-function onLongNoFace(){
-  interruptMonologue();
-  renderMessage('ai', '...', null);
-}
-
-
 
 /* =========================
 전시 모드 토글
 - ⌘+Enter 또는 Ctrl+Enter
-- 카메라 프리뷰/오디오 패널/독백 인디케이터 숨김
+- 카메라 프리뷰/오디오 패널/독백 인디케이터 + 모드 패널 숨김
 - 음원 재생은 계속됨
 ========================= */
 function setExhibitionMode(on){
@@ -1667,6 +1597,11 @@ function setExhibitionMode(on){
   // 오디오 패널 숨김/표시 (재생은 그대로)
   if (audioPanel){
     audioPanel.style.display = EXHIBITION_MODE ? 'none' : 'block';
+  }
+
+  // 독백 모드 패널 숨김/표시
+  if (monoModePanel){
+    monoModePanel.style.display = EXHIBITION_MODE ? 'none' : 'block';
   }
 
   updateMonologueIndicator();
@@ -1712,7 +1647,8 @@ window.addEventListener('DOMContentLoaded', () => {
   showPortrait();
 
   createMonologueIndicator();
-  createAudioPanel(); // 🔊 오른쪽 상단 음원 패널 생성
+  createAudioPanel();      // 🔊 오른쪽 상단 음원 패널 생성
+  createMonologueModePanel(); // 🔀 독백 모드 패널 생성
 
   const greet = '...왔구나.';
   const p = document.createElement('p');
